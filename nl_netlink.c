@@ -91,23 +91,14 @@ int nl_send_data(struct nl_connection *c, const struct sockaddr_nl *dst,
 {
     ssize_t sent;
     struct nlmsghdr *nlmsg;
-    struct msghdr msg;
-    struct iovec iov;
 
     nlmsg = nl_create_nlmsghdr(data, len, type, flags, c->seq++);
     if (nlmsg == NULL) {
         return -1;
     }
 
-    iov.iov_base = nlmsg;
-    iov.iov_len = nlmsg->nlmsg_len;
-    memset(&msg, 0, sizeof msg);
-    msg.msg_name = (void *)dst;
-    msg.msg_namelen = sizeof *dst;
-    msg.msg_iov = &iov;
-    msg.msg_iovlen = 1;
-
-    sent = sendmsg(c->fd, &msg, 0);
+    sent = sendto(c->fd, nlmsg, NLMSG_SPACE(len), 0,
+            (struct sockaddr *) dst, sizeof *dst);
     if (sent < 0) {
         return -1;
     }
