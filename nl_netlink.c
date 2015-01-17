@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <linux/netlink.h>
@@ -92,6 +93,8 @@ int nl_send_data(struct nl_connection *c, const struct sockaddr_nl *dst,
     ssize_t sent;
     struct nlmsghdr *nlmsg;
 
+    assert(c != NULL && dst != NULL);
+
     nlmsg = nl_create_nlmsghdr(data, len, type, flags, c->seq++);
     if (nlmsg == NULL) {
         return -1;
@@ -137,10 +140,12 @@ static void nl_free_nlmsghdr(struct nlmsghdr *nlmsg)
     free(nlmsg);
 }
 
-ssize_t nl_recv_from(struct nl_connection *c, void *data, size_t len,
-        struct sockaddr_nl *src_addr, socklen_t *addrlen)
+ssize_t nl_recv_from(struct nl_connection *c, struct nlmsghdr *data,
+        size_t len, struct sockaddr_nl *src_addr, socklen_t *addrlen)
 {
     ssize_t recvd;
+
+    assert(c != NULL && data != NULL && src_addr != NULL && addrlen != NULL);
 
     do {
         recvd = recvfrom(c->fd, data, len, 0,
@@ -156,11 +161,13 @@ ssize_t nl_recv_from(struct nl_connection *c, void *data, size_t len,
 
 int nl_close(struct nl_connection *c)
 {
+    int err = 0;
+
     if (c == NULL) {
         return -1;
     }
 
-    close(c->fd);
+    err = close(c->fd);
     free(c);
-    return 0;
+    return err;
 }

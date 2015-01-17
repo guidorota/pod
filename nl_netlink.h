@@ -24,8 +24,8 @@ int nl_send(struct nl_connection *c, const struct sockaddr_nl *dst,
 int nl_send_data(struct nl_connection *c, const struct sockaddr_nl *dst,
         uint16_t type, uint16_t flags, const void *data, size_t len);
 
-ssize_t nl_recv_from(struct nl_connection *c, void *data, size_t len,
-        struct sockaddr_nl *src_addr, socklen_t *addrlen);
+ssize_t nl_recv_from(struct nl_connection *c, struct nlmsghdr *data,
+        size_t len, struct sockaddr_nl *src_addr, socklen_t *addrlen);
 
 int nl_close(struct nl_connection *conn);
 
