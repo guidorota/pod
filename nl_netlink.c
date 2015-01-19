@@ -10,90 +10,10 @@
 
 #define NL_MSG_EMPTY(msg) (msg->data + msg->len)
 
-static int nl_msg_expand(struct nl_message *msg, const size_t minlen);
-
 static int nl_set_sock_buffer(struct nl_connection *c);
 static int nl_read_local_sockaddr(struct nl_connection *c);
 static struct nlmsghdr *nl_create_nlmsghdr(const void *data, size_t len,
         uint16_t type, uint16_t flags, uint32_t seq);
-
-struct nl_message *nl_msg_create(size_t cap)
-{
-    struct nl_message *msg;
-
-    msg = calloc(1, sizeof *msg);
-    if (msg == NULL) {
-        return NULL;
-    }
-
-    msg->data = calloc(1, cap);
-    if (msg->data == NULL) {
-        free(msg);
-        return NULL;
-    }
-
-    return msg;
-}
-
-int nl_msg_append(struct nl_message *msg, const void *data, const size_t len)
-{
-    int err;
-
-    if (msg == NULL || data == NULL || len == 0) {
-        errno = EINVAL;
-        return 0;
-    } 
-
-    if (msg->len + len > msg->cap) {
-        err = nl_msg_expand(msg, len);
-        if (err < 0) {
-            return err;
-        }
-    }
-
-    memcpy(NL_MSG_EMPTY(msg), data, len);
-
-    return 0; 
-}
-
-static int nl_msg_expand(struct nl_message *msg, const size_t minlen)
-{
-    size_t newcap;
-
-    if (2 * msg->cap + minlen > SIZE_MAX) {
-        newcap = 2 * msg->cap + minlen;
-    } else {
-        newcap = SIZE_MAX;
-    }
-
-    if (newcap < msg->cap + minlen) {
-        errno = ENOMEM;
-        return -errno;
-    }
-
-    msg->data = realloc(msg->data, newcap);
-    if (msg->data == NULL) {
-        errno = ENOMEM;
-        return -errno;
-    }
-
-    msg->cap = newcap;
-
-    return 0;
-}
-
-void nl_msg_free(struct nl_message *msg)
-{
-    if (msg == NULL) {
-        return;
-    }
-
-    if (msg->data != NULL) {
-        free(msg->data);
-    }
-
-    free(msg);
-}
 
 struct nl_connection *nl_connect(int protocol)
 {
@@ -161,8 +81,8 @@ static int nl_read_local_sockaddr(struct nl_connection *c) { socklen_t socklen;
     return 0;
 }
 
-int nl_send(struct nl_connection *c, const struct sockaddr_nl *dst,
-        const struct nl_message* msg)
+int nl_send(struct nl_connection *c, void *buf, size_t len, uint16_t type,
+        uint16_t flags, const struct sockaddr_nl *dst)
 {
     uint16_t seq;
     struct nlmsghdr *nlmsg;
@@ -173,13 +93,12 @@ int nl_send(struct nl_connection *c, const struct sockaddr_nl *dst,
     }
 
     seq = c->seq++;
-    nlmsg = nl_create_nlmsghdr(msg->data, msg->len, msg->type,
-            msg->flags, seq);
+    nlmsg = nl_create_nlmsghdr(buf, len, type, flags, seq);
     if (nlmsg == NULL) {
         return -1;
     }
 
-    if (sendto(c->fd, nlmsg, NLMSG_SPACE(msg->len), 0,
+    if (sendto(c->fd, nlmsg, NLMSG_SPACE(len), 0,
             (struct sockaddr *) dst, sizeof *dst) < 0) {
         seq = -1;
     }
@@ -213,28 +132,22 @@ static struct nlmsghdr *nl_create_nlmsghdr(const void *data, size_t len,
     return nlmsg;
 }
 
-struct nl_message * nl_recv(struct nl_connection *c,
+ssize_t nl_recv(struct nl_connection *c, void *buf, size_t len,
         struct sockaddr_nl *src_addr, socklen_t *addrlen)
 {
     ssize_t recvd;
-    struct nl_message *out;
-    struct nlmsghdr *nlmsg;
 
     if (c == NULL || src_addr == NULL || addrlen == NULL) {
         errno = EINVAL;
-        return NULL;
+        return -1; 
     }
 
-    out = malloc(
     do {
-        recvd = recvfrom(c->fd, data, len, 0,
+        recvd = recvfrom(c->fd, buf, len, 0,
                 (struct sockaddr *) src_addr, addrlen);
     } while (recvd == EINTR);
-    if (recvd < 0) {
-        return NULL;
-    }
 
-    return out;
+    return recvd;
 }
 
 int nl_close(struct nl_connection *c)

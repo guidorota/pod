@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <net/if.h>
 #include <sys/socket.h>
 #include "rt_rtnetlink.h"
@@ -21,7 +22,7 @@ int rt_get_info(char *ifname, struct ifinfomsg *info)
     socklen_t addrlen;
     struct ifinfomsg req;
     struct nlmsghdr *data;
-    size_t datalen = 2048;
+    size_t datalen = sysconf(_SC_PAGESIZE);
     ssize_t len;
 
     assert(ifname != NULL && info != NULL);
@@ -42,8 +43,7 @@ int rt_get_info(char *ifname, struct ifinfomsg *info)
         return -1;
     }
 
-    len = nl_send_data(c, &kernel, RTM_GETLINK,
-            NLM_F_REQUEST, &req, sizeof req);
+    len = nl_send(c, &req, sizeof req, RTM_GETLINK, NLM_F_REQUEST, &kernel);
     if (len < 0) {
         return -1;
     }
@@ -52,9 +52,12 @@ int rt_get_info(char *ifname, struct ifinfomsg *info)
     if (data == NULL) {
         return -1;
     }
-    nl_recv_from(c, data, datalen, &src_addr, &addrlen);
+    nl_recv(c, data, datalen, &src_addr, &addrlen);
 
     if (!rt_is_kernel(&src_addr)) {
+        return -1;
+    }
+    if (!NLMSG_OK(data, datalen)) {
         return -1;
     }
 
