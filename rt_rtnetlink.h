@@ -3,6 +3,6 @@
 
 #include <linux/rtnetlink.h>
 
-int rt_get_info(char *ifname, struct ifinfomsg *info);
+int rt_get_ifinfo(int index, struct ifinfomsg *info);
 
 #endif /* _RT_NETLINK_H */

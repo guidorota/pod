@@ -133,7 +133,7 @@ static struct nlmsghdr *nl_create_nlmsghdr(const void *data, size_t len,
 }
 
 ssize_t nl_recv(struct nl_connection *c, void *buf, size_t len,
-        struct sockaddr_nl *src_addr, socklen_t *addrlen)
+        struct sockaddr *src_addr, socklen_t *addrlen)
 {
     ssize_t recvd;
 
@@ -143,8 +143,7 @@ ssize_t nl_recv(struct nl_connection *c, void *buf, size_t len,
     }
 
     do {
-        recvd = recvfrom(c->fd, buf, len, 0,
-                (struct sockaddr *) src_addr, addrlen);
+        recvd = recvfrom(c->fd, buf, len, 0, src_addr, addrlen);
     } while (recvd == EINTR);
 
     return recvd;

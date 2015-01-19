@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
@@ -12,28 +14,23 @@
 // kernel netlink address
 const struct sockaddr_nl kernel = { AF_NETLINK, 0, 0, 0 };
 
-static int rt_check_ifname(const char *ifname);
-static bool rt_is_kernel(const struct sockaddr_nl *addr);
+static bool rt_check_addr(const struct sockaddr_storage *addr,
+        socklen_t addrlen);
 
-int rt_get_info(char *ifname, struct ifinfomsg *info)
+int rt_get_ifinfo(int index, struct ifinfomsg *info)
 {
     struct nl_connection *c;
-    struct sockaddr_nl src_addr;
+    struct sockaddr_storage src_addr;
     socklen_t addrlen;
     struct ifinfomsg req;
-    struct nlmsghdr *data;
+    struct nlmsghdr *buf;
     size_t datalen = sysconf(_SC_PAGESIZE);
     ssize_t len;
 
-    assert(ifname != NULL && info != NULL);
-
-    if (rt_check_ifname(ifname) != 0) {
-        return -1;
-    }
-
     memset(&req, 0, sizeof req);
     req.ifi_family = AF_UNSPEC;
-    req.ifi_index = if_nametoindex(ifname);
+    req.ifi_change = 0xFFFFFFFF;
+    req.ifi_index = index;
     if (req.ifi_index == 0) {
         return -errno;
     }
@@ -48,41 +45,89 @@ int rt_get_info(char *ifname, struct ifinfomsg *info)
         return -1;
     }
 
-    data = calloc(datalen, 1);
-    if (data == NULL) {
+    buf = calloc(datalen, 1);
+    if (buf == NULL) {
         return -1;
     }
-    nl_recv(c, data, datalen, &src_addr, &addrlen);
-
-    if (!rt_is_kernel(&src_addr)) {
-        return -1;
-    }
-    if (!NLMSG_OK(data, datalen)) {
+    len = nl_recv(c, buf, datalen, (struct sockaddr *) &src_addr, &addrlen);
+    if (len < 0) {
         return -1;
     }
 
-    info = NLMSG_DATA(data);
+    if (!NLMSG_OK(buf, datalen)) {
+        return -1;
+    }
+    if (!rt_check_addr(&src_addr, addrlen)) {
+        return -1;
+    }
+
+    // TEST STUFF                                                               
+    struct nlmsghdr *hdr = buf; 
+    for (; NLMSG_OK(hdr, len); hdr = NLMSG_NEXT(hdr, len)) {
+        info = NLMSG_DATA(buf);
+
+        printf("sizeof (struct nlmsghdr): %lu\n", sizeof (struct nlmsghdr));
+        printf("nlmsghdr len: %d\n", hdr->nlmsg_len);
+        printf("nlmsghdr seq: %d\n", hdr->nlmsg_seq);
+        if (hdr->nlmsg_type == NLMSG_DONE) {
+            printf("done\n");
+        }
+        printf("if_index: %d\n", info->ifi_index);
+
+        struct rtattr *rta =
+            (struct rtattr *) (((char *) hdr) + 32);
+        size_t attrlen = len - NLMSG_ALIGN(sizeof (struct nlmsghdr)) -
+            NLMSG_ALIGN(sizeof (struct ifinfomsg)) - 4;
+        printf("aligned nlmsghdr: %lu\n", NLMSG_ALIGN(sizeof (struct nlmsghdr))); 
+        printf("aligned ifinfomsg: %lu\n", NLMSG_ALIGN(sizeof (struct ifinfomsg))); 
+        printf("attrlen: %zu\n", attrlen);
+        for (; RTA_OK(rta, attrlen); rta = RTA_NEXT(rta, attrlen)) {
+            switch(rta->rta_type) {
+            case IFLA_UNSPEC:
+                printf("unspecified\n");
+                break;
+            case IFLA_ADDRESS:
+                printf("iface address\n");
+                break;
+            case IFLA_BROADCAST:
+                printf("broadcast address\n");
+                break;
+            case IFLA_IFNAME:
+                printf("device name\n");
+                char *name;
+                name = RTA_DATA(rta);
+                printf("\t%s\n", name);
+                break;
+            case IFLA_MTU:
+                printf("mtu\n");
+                break;
+            case IFLA_LINK:
+                printf("link type\n");
+                break;
+            case IFLA_QDISC:
+                printf("queuing discipline\n");
+                break;
+            case IFLA_STATS:
+                printf("iface statistics\n");
+                break;
+            }
+        }
+    } 
 
     nl_close(c);
 
     return 0;
 }
 
-static int rt_check_ifname(const char *ifname)
+static bool rt_check_addr(const struct sockaddr_storage *addr,
+        socklen_t addrlen)
 {
-    int l;
-
-    assert(ifname != NULL);
-
-    l = strlen(ifname);
-    if (l == 0 || l >= IF_NAMESIZE) {
+    if (addrlen != sizeof (struct sockaddr_nl)) {
         return -1;
     }
 
-    return 0;
-}
-
-static bool rt_is_kernel(const struct sockaddr_nl *addr)
-{
-    return addr->nl_family == AF_NETLINK && addr->nl_pid == 0;
+    if (((struct sockaddr_nl *)addr)->nl_pid != 0) {
+        return false;
+    }
+    return true;
 }
