@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "net_network.h"
+#include "net/net_network.h"
 
 int main()
 {
