@@ -12,19 +12,23 @@ static int net_ifindex(const char *ifname);
 int net_if_up(char *ifname)
 {
     int i;
-    struct ifinfomsg info;
+    int up;
+    struct rt_ifinfo *info;
 
     i = net_ifindex(ifname);
-
-    if (rt_get_ifinfo(i, &info) < 0) {
+    if (i < 0) {
         return -1;
     }
 
-    if (info.ifi_flags & 0x1) {
-        return 1;
+    info = rt_get_ifinfo(i);
+    if (info == NULL) {
+        return -1;
     }
 
-    return 0;
+    up = info->info.ifi_flags & IFF_UP;
+    rt_ifinfo_free(info);
+
+    return up;
 }
 
 /**

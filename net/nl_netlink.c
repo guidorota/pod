@@ -81,7 +81,7 @@ static int nl_read_local_sockaddr(struct nl_connection *c) { socklen_t socklen;
     return 0;
 }
 
-int nl_send_raw(struct nl_connection *c, struct nlmsghdr *hdr,
+int nl_send_raw(struct nl_connection *c, const struct nlmsghdr *hdr,
         const struct sockaddr_nl *dst)
 {
     uint16_t seq;
@@ -100,8 +100,8 @@ int nl_send_raw(struct nl_connection *c, struct nlmsghdr *hdr,
     return seq; 
 }
 
-int nl_send(struct nl_connection *c, void *buf, size_t len, uint16_t type,
-        uint16_t flags, const struct sockaddr_nl *dst)
+int nl_send(struct nl_connection *c, const void *buf, size_t len,
+        uint16_t type, uint16_t flags, const struct sockaddr_nl *dst)
 {
     uint16_t seq;
     struct nlmsghdr *nlmsg;

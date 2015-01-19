@@ -9,6 +9,20 @@
 #include "rt_rtnetlink.h"
 #include "nl_netlink.h"
 
+/**
+ * Offset of the first rtattr byte inside a netlink packet containing a struct
+ * ifinfomsg.
+ */
+#define RT_RTA_OFFSET (NLMSG_ALIGN(sizeof (struct nlmsghdr)) + \
+        NLMSG_ALIGN(sizeof (struct ifinfomsg)))
+
+/**
+ * Address of the first rtattr in a netlink packet containing a struct
+ * ifinfomsg.
+ */
+#define RT_RTA_FIRST(hdr) ((struct rtattr *) ((char *) hdr + RT_RTA_OFFSET))
+
+
 // kernel netlink address
 const struct sockaddr_nl kernel = { AF_NETLINK, 0, 0, 0 };
 
@@ -17,28 +31,32 @@ static ssize_t rt_sync(struct nl_connection *c, const void *snd_buf,
         size_t rcv_len);
 static bool rt_is_kernel(const struct sockaddr_storage *addr,
         socklen_t addrlen);
-static struct rt_info *rt_parse_ifinfomsg(struct nlmsghdr *msg, size_t len);
+static struct rt_ifinfo *rt_parse_ifinfomsg(struct nlmsghdr *msg, size_t len);
 static struct rtattr *rt_copy_rta(struct rtattr *rta);
 
-struct rt_ifinfo {
-    struct ifinfomsg info;
-    struct rtattr *atts[IFLA_MAX];
-};
-
-void rt_free_ifinfomsg(struct ifinfomsg *info)
+void rt_ifinfo_free(struct rt_ifinfo *ifinfo)
 {
-    if (info == NULL) {
+    int i;
+
+    if (ifinfo == NULL) {
         return;
     }
 
-    free(info);
+    for (i = 0; i < IFLA_MAX; i++) {
+        if (ifinfo->atts[i] == NULL) {
+            continue;
+        }
+        free(ifinfo->atts[i]);
+    }
+
+    free(ifinfo);
 }
 
-struct ifinfomsg *rt_get_ifinfo(int index)
+struct rt_ifinfo *rt_get_ifinfo(int index)
 {
     struct nl_connection *c;
     struct ifinfomsg req;
-    struct ifinfomsg *ret = NULL;
+    struct rt_ifinfo *info = NULL;
     struct nlmsghdr *buf;
     size_t buflen = sysconf(_SC_PAGESIZE);
     ssize_t recvd;
@@ -64,29 +82,37 @@ struct ifinfomsg *rt_get_ifinfo(int index)
         goto clean_buffer;
     }
 
+    info = rt_parse_ifinfomsg(buf, recvd);
+    if (info == NULL) {
+        goto clean_buffer;
+    }
 
 clean_buffer:
     free(buf);
 clean_connection:
     nl_close(c);
-    return ret;
+    return info;
 }
 
-static struct rt_info *rt_parse_ifinfomsg(struct nlmsghdr *msg, size_t len)
+/**
+ * rt_parse_ifinfomsg parses interface information from a ifinfomsg rtnetlink
+ * structure.
+ *
+ * @return  NULL in case of error
+ */
+static struct rt_ifinfo *rt_parse_ifinfomsg(struct nlmsghdr *hdr, size_t len)
 {
-    struct ifinfomsg *ifinfo;
     struct rtattr *rta;
+    struct rtattr *rta_copy;
     struct rt_ifinfo *info;
 
-    if (msg == NULL ||
-            len < NLMSG_ALIGN(sizeof (struct nlmsghdr)) +
-                NLMSG_ALIGN(sizeof (struct ifinfomsg))) {
+    if (hdr == NULL || len < RT_RTA_OFFSET) {
         errno = EINVAL;
         return NULL;
     }
 
-    if (NL_ISERROR(msg)) {
-        errno = NL_ERROR_NO(msg);
+    if (NL_ISERROR(hdr)) {
+        errno = NL_ERROR_NO(hdr);
         return NULL;
     }
 
@@ -95,14 +121,23 @@ static struct rt_info *rt_parse_ifinfomsg(struct nlmsghdr *msg, size_t len)
         return NULL;
     }
 
-    ifinfo = NLMSG_DATA(msg);
-    memcpy(&info->info, ifinfo, sizeof info->info); 
+    memcpy(&info->info, NLMSG_DATA(hdr), sizeof info->info); 
     
-    rta = (struct rtattr *) ((char *) ifinfo + NLMSG_ALIGN(sizeof *ifinfo));
-    len -= NLMSG_ALIGN(sizeof (struct nlmsghdr)) + NLMSG_ALIGN(sizeof (struct ifinfomsg));
+    rta = RT_RTA_FIRST(hdr);
+    len -= RT_RTA_OFFSET;
     for (; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
-        info->atts[rta->rta_type] = rt_copy_rta(rta);
+        rta_copy = rt_copy_rta(rta);
+        if (rta_copy == NULL) {
+            goto free_ifinfo;
+        }
+        info->atts[rta->rta_type] = rta_copy;
     }
+
+    return info;
+
+free_ifinfo:
+    rt_ifinfo_free(info);
+    return NULL;
 }
 
 /**
@@ -141,7 +176,7 @@ static ssize_t rt_sync(struct nl_connection *c, const void *snd_buf,
     socklen_t addrlen;
     ssize_t len;
 
-    len = nl_send(c, &snd_buf, snd_len, type, flags, &kernel);
+    len = nl_send(c, snd_buf, snd_len, type, flags, &kernel);
     if (len < 0) {
         return -1;
     }
