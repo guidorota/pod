@@ -81,6 +81,25 @@ static int nl_read_local_sockaddr(struct nl_connection *c) { socklen_t socklen;
     return 0;
 }
 
+int nl_send_raw(struct nl_connection *c, struct nlmsghdr *hdr,
+        const struct sockaddr_nl *dst)
+{
+    uint16_t seq;
+
+    if (c == NULL || hdr == NULL || dst == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    seq = c->seq++;
+    if (sendto(c->fd, hdr, NLMSG_ALIGN(hdr->nlmsg_len), 0,
+            (struct sockaddr *) dst, sizeof *dst) < 0) {
+        return -1;
+    }
+
+    return seq; 
+}
+
 int nl_send(struct nl_connection *c, void *buf, size_t len, uint16_t type,
         uint16_t flags, const struct sockaddr_nl *dst)
 {
@@ -132,7 +151,7 @@ static struct nlmsghdr *nl_create_nlmsghdr(const void *data, size_t len,
     return nlmsg;
 }
 
-ssize_t nl_recv(struct nl_connection *c, void *buf, size_t len,
+ssize_t nl_recv(struct nl_connection *c, struct nlmsghdr *buf, size_t len,
         struct sockaddr *src_addr, socklen_t *addrlen)
 {
     ssize_t recvd;

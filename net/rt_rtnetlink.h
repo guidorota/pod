@@ -1,6 +1,7 @@
 #ifndef _RT_NETLINK_H
 #define _RT_NETLINK_H
 
+#include <unistd.h>
 #include <linux/rtnetlink.h>
 
 /**
@@ -10,6 +11,6 @@
  * @return  struct ifinfomsg (refer to man 7 rtnetlink for parsing). This
  *          structure must be deallocated with free().
  */
-struct ifinfomsg *rt_get_ifinfo(int index);
+ssize_t rt_get_ifinfo(int index, struct ifinfomsg *info);
 
 #endif /* _RT_NETLINK_H */
