@@ -23,7 +23,7 @@
 /**
  * NL_ISACK returns true if the netlink message is an ACK.
  */
-#define NL_ISACK(HDR)                      \
+#define NL_ISACK(hdr)                      \
         (hdr->nlmsg_type == NLMSG_ERROR && \
         NL_ERROR_NO(hdr) == 0)
 

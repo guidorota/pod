@@ -26,9 +26,8 @@
 // kernel netlink address
 const struct sockaddr_nl kernel = { AF_NETLINK, 0, 0, 0 };
 
-static ssize_t rt_sync(struct nl_connection *c, const void *snd_buf,
-        size_t snd_len, uint16_t type, uint16_t flags, void *rcv_buf,
-        size_t rcv_len);
+static ssize_t rt_sync(const void *req_buf, size_t req_len, uint16_t type,
+        uint16_t flags, struct nlmsghdr *reply_buf, size_t reply_len);
 static bool rt_is_kernel(const struct sockaddr_storage *addr,
         socklen_t addrlen);
 static struct rt_ifinfo *rt_parse_ifinfomsg(struct nlmsghdr *msg, size_t len);
@@ -52,32 +51,61 @@ void rt_ifinfo_free(struct rt_ifinfo *ifinfo)
     free(ifinfo);
 }
 
+int rt_set_flags(int index, uint32_t flags)
+{
+    struct ifinfomsg req;
+    struct nlmsghdr *buf;
+    size_t buflen = sysconf(_SC_PAGESIZE);
+    ssize_t recvd;
+    int err = 0;
+
+    buf = calloc(buflen, 1);
+    if (buf == NULL) {
+        return -1;
+    }
+
+    memset(&req, 0, sizeof req);
+    req.ifi_family = AF_UNSPEC;
+    req.ifi_change = 0xFFFFFFFF;
+    req.ifi_index = index;
+    req.ifi_flags = flags;
+
+    recvd = rt_sync(&req, sizeof req, RTM_NEWLINK,
+                NLM_F_REQUEST | NLM_F_ACK, buf, buflen);
+    if (recvd < 0) {
+        err = -1;
+        goto clean_buf;
+    }
+
+    if (!NL_ISACK(buf)) {
+        err = -1;
+        goto clean_buf;
+    }
+
+clean_buf:
+    free(buf);
+    return err;
+}
+
 struct rt_ifinfo *rt_get_ifinfo(int index)
 {
-    struct nl_connection *c;
     struct ifinfomsg req;
     struct rt_ifinfo *info = NULL;
     struct nlmsghdr *buf;
     size_t buflen = sysconf(_SC_PAGESIZE);
     ssize_t recvd;
 
+    buf = calloc(buflen, 1);
+    if (buf == NULL) {
+        return NULL;
+    }
+
     memset(&req, 0, sizeof req);
     req.ifi_family = AF_UNSPEC;
     req.ifi_change = 0xFFFFFFFF;
     req.ifi_index = index;
 
-    c = nl_connect(NETLINK_ROUTE);
-    if (c == NULL) {
-        return NULL;
-    }
-
-    buf = calloc(buflen, 1);
-    if (buf == NULL) {
-        goto clean_connection;
-    }
-
-    recvd = rt_sync(c, &req, sizeof req, RTM_GETLINK, 
-                NLM_F_REQUEST, buf, buflen);
+    recvd = rt_sync(&req, sizeof req, RTM_GETLINK, NLM_F_REQUEST, buf, buflen);
     if (recvd < 0) {
         goto clean_buffer;
     }
@@ -89,8 +117,6 @@ struct rt_ifinfo *rt_get_ifinfo(int index)
 
 clean_buffer:
     free(buf);
-clean_connection:
-    nl_close(c);
     return info;
 }
 
@@ -112,7 +138,7 @@ static struct rt_ifinfo *rt_parse_ifinfomsg(struct nlmsghdr *hdr, size_t len)
     }
 
     if (NL_ISERROR(hdr)) {
-        errno = NL_ERROR_NO(hdr);
+        errno = -NL_ERROR_NO(hdr);
         return NULL;
     }
 
@@ -169,28 +195,41 @@ static struct rtattr *rt_copy_rta(struct rtattr *rta)
  *
  * @return  bytes received, -1 on error
  */
-static ssize_t rt_sync(struct nl_connection *c, const void *snd_buf,
-        size_t snd_len, uint16_t type, uint16_t flags, void *rcv_buf,
-        size_t rcv_len) {
+static ssize_t rt_sync(const void *req_buf, size_t req_len, uint16_t type,
+        uint16_t flags, struct nlmsghdr *reply_buf, size_t reply_len) {
+    struct nl_connection *c;
     struct sockaddr_storage addr;
     socklen_t addrlen;
-    ssize_t len;
+    int seq;
+    ssize_t recvd;
 
-    len = nl_send(c, snd_buf, snd_len, type, flags, &kernel);
-    if (len < 0) {
+    c = nl_connect(NETLINK_ROUTE);
+    if (c == NULL) {
         return -1;
     }
 
-    len = nl_recv(c, rcv_buf, rcv_len, (struct sockaddr *) &addr, &addrlen);
-    if (len < 0) {
-        return -1; 
+    seq = nl_send(c, req_buf, req_len, type, flags, &kernel);
+    if (seq < 0) {
+        recvd = -1;
+        goto close_conn;
+    }
+
+    recvd = nl_recv(c, reply_buf, reply_len, (struct sockaddr *) &addr, &addrlen);
+    if (recvd < 0) {
+        goto close_conn;
     }
 
     if (!rt_is_kernel(&addr, addrlen)) {
-        return -1;
+        recvd = -1;
+        goto close_conn;
+    }
+    if (reply_buf->nlmsg_seq != (uint32_t) seq) {
+        recvd = -1;
     }
 
-    return len;
+close_conn:
+    nl_close(c);
+    return recvd;
 }
                 
 /**

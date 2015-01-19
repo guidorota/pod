@@ -1,6 +1,7 @@
 #ifndef _RT_NETLINK_H
 #define _RT_NETLINK_H
 
+#include <stdint.h>
 #include <unistd.h>
 #include <linux/rtnetlink.h>
 
@@ -25,5 +26,12 @@ void rt_ifinfo_free(struct rt_ifinfo *ifinfo);
  *          structure must be deallocated with free().
  */
 struct rt_ifinfo *rt_get_ifinfo(int index);
+
+/**
+ * rt_set_flags sets the flags on an interface.
+ *
+ * @return  0 on success, -1 on failure
+ */
+int rt_set_flags(int index, uint32_t flags);
 
 #endif /* _RT_NETLINK_H */
