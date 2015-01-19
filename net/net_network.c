@@ -6,9 +6,21 @@
 #include "net_network.h"
 #include "rt_rtnetlink.h"
 
-int net_set_flags(char *ifname, uint32_t set, uint32_t unset);
+static int net_set_flags(char *ifname, uint32_t set, uint32_t unset);
 static bool net_check_ifname(const char *ifname);
 static int net_ifindex(const char *ifname);
+
+int net_delete(char *ifname)
+{
+    int i;
+
+    i = net_ifindex(ifname);
+    if (i < 0) {
+        return -1;
+    }
+
+    return rt_delete(i);
+}
 
 int net_up(char *ifname)
 {
@@ -20,7 +32,12 @@ int net_down(char *ifname)
     return net_set_flags(ifname, 0, IFF_UP);
 }
 
-int net_set_flags(char *ifname, uint32_t set, uint32_t unset)
+/**
+ * net_set_flags changes the flags of the interface passed as parameter.
+ *
+ * @return  0 on success, -1 on failure
+ */
+static int net_set_flags(char *ifname, uint32_t set, uint32_t unset)
 {
     int i;
     uint32_t flags;

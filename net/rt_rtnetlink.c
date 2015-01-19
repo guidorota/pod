@@ -51,16 +51,56 @@ void rt_ifinfo_free(struct rt_ifinfo *ifinfo)
     free(ifinfo);
 }
 
+int rt_delete(int index)
+{
+    struct ifinfomsg req;
+    struct nlmsghdr *resp;
+    ssize_t buflen = sysconf(_SC_PAGESIZE);
+    ssize_t recvd;
+    int err = 0;
+
+    resp = calloc(buflen, 1);
+    if (resp == NULL) {
+        return -1;
+    }
+
+    memset(&req, 0, sizeof req);
+    req.ifi_family = AF_UNSPEC;
+    req.ifi_change = 0xFFFFFFFF;
+    req.ifi_index = index;
+
+    recvd = rt_sync(&req, sizeof req, RTM_DELLINK,
+                NLM_F_REQUEST | NLM_F_ACK, resp, buflen);
+    if (recvd < 0) {
+        err = -1;
+        goto clean_buf;
+    }
+
+    if (NL_ISERROR(resp)) {
+        errno = -NL_ERROR_NO(resp);
+        return -1;
+    }
+
+    if (!NL_ISACK(resp)) {
+        err = -1;
+        goto clean_buf;
+    }
+
+clean_buf:
+    free(resp);
+    return err;
+}
+
 int rt_set_flags(int index, uint32_t flags)
 {
     struct ifinfomsg req;
-    struct nlmsghdr *buf;
+    struct nlmsghdr *hdr;
     size_t buflen = sysconf(_SC_PAGESIZE);
     ssize_t recvd;
     int err = 0;
 
-    buf = calloc(buflen, 1);
-    if (buf == NULL) {
+    hdr = calloc(buflen, 1);
+    if (hdr == NULL) {
         return -1;
     }
 
@@ -71,19 +111,24 @@ int rt_set_flags(int index, uint32_t flags)
     req.ifi_flags = flags;
 
     recvd = rt_sync(&req, sizeof req, RTM_NEWLINK,
-                NLM_F_REQUEST | NLM_F_ACK, buf, buflen);
+                NLM_F_REQUEST | NLM_F_ACK, hdr, buflen);
     if (recvd < 0) {
         err = -1;
         goto clean_buf;
     }
 
-    if (!NL_ISACK(buf)) {
+    if (NL_ISERROR(hdr)) {
+        errno = -NL_ERROR_NO(hdr);
+        return -1;
+    }
+
+    if (!NL_ISACK(hdr)) {
         err = -1;
         goto clean_buf;
     }
 
 clean_buf:
-    free(buf);
+    free(hdr);
     return err;
 }
 

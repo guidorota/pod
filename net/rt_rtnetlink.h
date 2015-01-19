@@ -6,7 +6,7 @@
 #include <linux/rtnetlink.h>
 
 /**
- * Network interface information
+ * struct rt_ifinfo contains various interface information
  */
 struct rt_ifinfo {
     struct ifinfomsg info;
@@ -33,5 +33,12 @@ struct rt_ifinfo *rt_get_ifinfo(int index);
  * @return  0 on success, -1 on failure
  */
 int rt_set_flags(int index, uint32_t flags);
+
+/**
+ * rt_delete removes an interface from the system.
+ *
+ * @return  0 on success, -1 on failure
+ */
+int rt_delete(int index);
 
 #endif /* _RT_NETLINK_H */
