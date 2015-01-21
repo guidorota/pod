@@ -10,6 +10,10 @@ static int net_set_flags(char *ifname, uint32_t set, uint32_t unset);
 static bool net_check_ifname(const char *ifname);
 static int net_ifindex(const char *ifname);
 
+int net_create_veth(const char *name1, const char *name2)
+{
+}
+
 int net_delete(char *ifname)
 {
     int i;

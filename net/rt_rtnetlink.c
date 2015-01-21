@@ -10,6 +10,11 @@
 #include "nl_netlink.h"
 
 /**
+ * Typical size of a rtnetlink datagram message.
+ */
+#define RT_DGRAM_SIZE sysconf(_SC_PAGESIZE)
+
+/**
  * Offset of the first rtattr byte inside a netlink packet containing a struct
  * ifinfomsg.
  */
@@ -26,36 +31,36 @@
 // kernel netlink address
 const struct sockaddr_nl kernel = { AF_NETLINK, 0, 0, 0 };
 
+// struct rt_ifinfo management
+static struct rt_ifinfo *rt_decode_ifinfomsg(struct nlmsghdr *msg, size_t len);
+static struct rtattr **rt_decode_rtattr(struct rtattr *rta, size_t len);
+static struct rtattr *rt_copy_rtattr(struct rtattr *rta);
+static void rt_ifinfo_free_atts(struct rtattr **atts);
+
 static ssize_t rt_sync(const void *req_buf, size_t req_len, uint16_t type,
         uint16_t flags, struct nlmsghdr *reply_buf, size_t reply_len);
 static bool rt_is_kernel(const struct sockaddr_storage *addr,
         socklen_t addrlen);
-static struct rt_ifinfo *rt_parse_ifinfomsg(struct nlmsghdr *msg, size_t len);
-static struct rtattr *rt_copy_rta(struct rtattr *rta);
 
-void rt_ifinfo_free(struct rt_ifinfo *ifinfo)
+int rt_create_veth(const char *name1, const char *name2)
 {
-    int i;
+    struct ifinfomsg req;
+    int nl_flags;
 
-    if (ifinfo == NULL) {
-        return;
-    }
+    memset(&req, 0, sizeof req);
+    req.ifi_family = AF_UNSPEC;
+    req.ifi_change = 0xFFFFFFFF;
 
-    for (i = 0; i < IFLA_MAX; i++) {
-        if (ifinfo->atts[i] == NULL) {
-            continue;
-        }
-        free(ifinfo->atts[i]);
-    }
+    nl_flags = NLM_F_CREATE | NLM_F_EXCL | NLM_F_REQUEST | NLM_F_ACK;
 
-    free(ifinfo);
+    return 0;
 }
 
 int rt_delete(int index)
 {
     struct ifinfomsg req;
     struct nlmsghdr *resp;
-    ssize_t buflen = sysconf(_SC_PAGESIZE);
+    ssize_t buflen = RT_DGRAM_SIZE;
     ssize_t recvd;
     int err = 0;
 
@@ -95,7 +100,7 @@ int rt_set_flags(int index, uint32_t flags)
 {
     struct ifinfomsg req;
     struct nlmsghdr *hdr;
-    size_t buflen = sysconf(_SC_PAGESIZE);
+    size_t buflen = RT_DGRAM_SIZE;
     ssize_t recvd;
     int err = 0;
 
@@ -137,7 +142,7 @@ struct rt_ifinfo *rt_get_ifinfo(int index)
     struct ifinfomsg req;
     struct rt_ifinfo *info = NULL;
     struct nlmsghdr *buf;
-    size_t buflen = sysconf(_SC_PAGESIZE);
+    size_t buflen = RT_DGRAM_SIZE;
     ssize_t recvd;
 
     buf = calloc(buflen, 1);
@@ -155,7 +160,7 @@ struct rt_ifinfo *rt_get_ifinfo(int index)
         goto clean_buffer;
     }
 
-    info = rt_parse_ifinfomsg(buf, recvd);
+    info = rt_decode_ifinfomsg(buf, recvd);
     if (info == NULL) {
         goto clean_buffer;
     }
@@ -165,16 +170,62 @@ clean_buffer:
     return info;
 }
 
+ssize_t rt_encode_ifinfomsg(struct rt_ifinfo *info, void *buf, size_t len)
+{
+    ssize_t copied = 0;
+
+    if (len < NLMSG_HDRLEN) {
+        goto overflow;
+    }
+    memcpy(buf, &info->info, sizeof info->info);
+
+    copied = rt_encode_rtattr(info->atts, buf + NLMSG_HDRLEN,
+            len - NLMSG_HDRLEN); 
+    if (copied == -1) {
+        goto overflow;
+    }
+
+    return copied + NLMSG_HDRLEN;
+
+overflow:
+    errno = EOVERFLOW;
+    return -1;
+}
+
+ssize_t rt_encode_rtattr(struct rtattr **atts, void *buf, size_t len)
+{
+    int i;
+    size_t copied = 0;
+    struct rtattr *rta;
+
+    for (i = 0; i < RT_MAX_ATTS; i++) {
+        rta = atts[i];
+        if (rta == NULL) {
+            continue;
+        }
+        if (len < copied + (size_t) rta->rta_len) {
+            goto overflow;
+        }
+        memcpy(buf, rta, rta->rta_len);
+        buf += NLMSG_ALIGN(rta->rta_len);
+        copied += NLMSG_ALIGN(rta->rta_len);
+    }
+
+    return copied;
+
+overflow:
+    errno = EOVERFLOW;
+    return -1;
+}
+
 /**
- * rt_parse_ifinfomsg parses interface information from a ifinfomsg rtnetlink
+ * rt_decode_ifinfomsg decodes the contents of an ifinfomsg rtnetlink
  * structure.
  *
  * @return  NULL in case of error
  */
-static struct rt_ifinfo *rt_parse_ifinfomsg(struct nlmsghdr *hdr, size_t len)
+static struct rt_ifinfo *rt_decode_ifinfomsg(struct nlmsghdr *hdr, size_t len)
 {
-    struct rtattr *rta;
-    struct rtattr *rta_copy;
     struct rt_ifinfo *info;
 
     if (hdr == NULL || len < RT_RTA_OFFSET) {
@@ -194,21 +245,35 @@ static struct rt_ifinfo *rt_parse_ifinfomsg(struct nlmsghdr *hdr, size_t len)
 
     memcpy(&info->info, NLMSG_DATA(hdr), sizeof info->info); 
     
-    rta = RT_RTA_FIRST(hdr);
-    len -= RT_RTA_OFFSET;
-    for (; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
-        rta_copy = rt_copy_rta(rta);
-        if (rta_copy == NULL) {
-            goto free_ifinfo;
-        }
-        info->atts[rta->rta_type] = rta_copy;
+    info->atts = rt_decode_rtattr(RT_RTA_FIRST(hdr), len - RT_RTA_OFFSET);
+    if (info->atts == NULL) {
+        free(info);
+        return NULL;
     }
 
     return info;
+}
 
-free_ifinfo:
-    rt_ifinfo_free(info);
-    return NULL;
+static struct rtattr **rt_decode_rtattr(struct rtattr *rta, size_t len)
+{
+    struct rtattr *rta_copy;
+    struct rtattr **atts;
+
+    atts = calloc(RT_MAX_ATTS, sizeof (struct rtattr *));
+    if (atts == NULL) {
+        return NULL;
+    }
+
+    for (; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
+        rta_copy = rt_copy_rtattr(rta);
+        if (rta_copy == NULL) {
+            rt_ifinfo_free_atts(atts);
+            return NULL; 
+        }
+        atts[rta->rta_type] = rta_copy;
+    }
+
+    return atts;
 }
 
 /**
@@ -216,7 +281,7 @@ free_ifinfo:
  *
  * @return  NULL in case of error
  */
-static struct rtattr *rt_copy_rta(struct rtattr *rta)
+static struct rtattr *rt_copy_rtattr(struct rtattr *rta)
 {
     struct rtattr *copy;
 
@@ -233,6 +298,34 @@ static struct rtattr *rt_copy_rta(struct rtattr *rta)
     return copy;
 }
 
+void rt_ifinfo_free(struct rt_ifinfo *ifinfo)
+{
+    if (ifinfo == NULL) {
+        return;
+    }
+
+    rt_ifinfo_free_atts(ifinfo->atts);
+
+    free(ifinfo);
+}
+
+static void rt_ifinfo_free_atts(struct rtattr **atts)
+{
+    int i;
+
+    if (atts == NULL) {
+        return;
+    }
+
+    for (i = 0; i < RT_MAX_ATTS; i++) {
+        if (atts[i] == NULL) {
+            continue;
+        }
+        free(atts[i]);
+    }
+
+    free(atts);
+}
 
 /**
  * rt_sync sends a message to the kernel and synchronously receives a single

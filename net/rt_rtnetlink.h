@@ -5,13 +5,42 @@
 #include <unistd.h>
 #include <linux/rtnetlink.h>
 
+#define RT_MAX_ATTS IFLA_MAX
+
 /**
- * struct rt_ifinfo contains various interface information
+ * struct rt_ifinfo contains various interface information.
  */
 struct rt_ifinfo {
     struct ifinfomsg info;
-    struct rtattr *atts[IFLA_MAX];
+    struct rtattr **atts;
 };
+
+/**
+ * rt_encode_ifinfomsg encodes a struct rt_ifinfo into the buffer passed as
+ * parameter.
+ *
+ * @buf destination buffer
+ * @len length of the destination buffer
+ *
+ * @return  number of bytes copied into the buffer, -1 if the buffer supplied
+ * is not larg enough to contain all non-NULL elements in the atts array.
+ */
+ssize_t rt_encode_ifinfomsg(struct rt_ifinfo *info, void *buf, size_t len);
+
+/**
+ * rt_encode_rtattr encodes the non-NULL attributes present in the atts
+ * parameter into the buffer passed as parameter.
+ *
+ * The user must guarantee that the **atts parameter contains RT_MAX_ATTS
+ * attributes.
+ *
+ * @buf destination buffer
+ * @len length of the destination buffer
+ *
+ * @return  number of bytes copied into the buffer, -1 if the buffer supplied
+ * is not large enough to contain all non-NULL elements in the atts array.
+ */
+ssize_t rt_encode_rtattr(struct rtattr **atts, void *buf, size_t len);
 
 /**
  * rt_ifinfo_free releases the memory occupied by a struct rt_ifinfo.

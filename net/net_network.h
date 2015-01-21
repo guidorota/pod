@@ -1,6 +1,8 @@
 #ifndef _NET_NETWORK_H
 #define _NET_NETWORK_H
 
+int net_create_veth(const char *name1, const char *name2);
+
 /**
  * net_delete deletes a network interface.
  *
