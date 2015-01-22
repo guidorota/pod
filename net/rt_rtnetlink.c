@@ -12,31 +12,91 @@
 // kernel netlink address
 const struct sockaddr_nl kernel = { AF_NETLINK, 0, 0, 0 };
 
-// communication utility functions
+// helper functions
+static int rt_simple_request(const struct ifinfomsg *req_buf, size_t req_len,
+        uint16_t type, uint16_t flags);
 static ssize_t rt_sync(const void *req_buf, size_t req_len, uint16_t type,
         uint16_t flags, struct nlmsghdr *reply_buf, size_t reply_len);
 static bool rt_is_kernel(const struct sockaddr_storage *addr,
         socklen_t addrlen);
 
-/*
-int rt_create_veth(const char *name1, const char *name2)
+int rt_link_create(struct ifinfomsg *info, size_t info_len)
 {
-    struct ifinfomsg req;
-    int nl_flags;
-
-    memset(&req, 0, sizeof req);
-    req.ifi_family = AF_UNSPEC;
-    req.ifi_change = 0xFFFFFFFF;
-
-    nl_flags = NLM_F_CREATE | NLM_F_EXCL | NLM_F_REQUEST | NLM_F_ACK;
-
-    return 0;
+    return rt_simple_request(info, info_len, RTM_NEWLINK,
+            NLM_F_CREATE | NLM_F_EXCL | NLM_F_REQUEST | NLM_F_ACK);
 }
-*/
 
 int rt_delete_link(int index)
 {
     struct ifinfomsg req;
+
+    memset(&req, 0, sizeof req);
+    req.ifi_family = AF_UNSPEC;
+    req.ifi_change = 0xFFFFFFFF;
+    req.ifi_index = index;
+
+    return rt_simple_request(&req, sizeof req, RTM_DELLINK,
+            NLM_F_REQUEST | NLM_F_ACK);
+}
+
+int rt_set_link_flags(int index, uint32_t flags)
+{
+    struct ifinfomsg req;
+
+    memset(&req, 0, sizeof req);
+    req.ifi_family = AF_UNSPEC;
+    req.ifi_change = 0xFFFFFFFF;
+    req.ifi_index = index;
+    req.ifi_flags = flags;
+
+    return rt_simple_request(&req, sizeof req, RTM_DELLINK,
+                NLM_F_REQUEST | NLM_F_ACK);
+}
+
+ssize_t rt_link_info(int index, void *buf, size_t len)
+{
+    struct ifinfomsg req;
+    struct nlmsghdr *resp;
+    ssize_t recvd;
+
+    if (buf == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+    resp = buf;
+
+    memset(&req, 0, sizeof req);
+    req.ifi_family = AF_UNSPEC;
+    req.ifi_change = 0xFFFFFFFF;
+    req.ifi_index = index;
+
+    recvd = rt_sync(&req, sizeof req, RTM_GETLINK, NLM_F_REQUEST, buf, len);
+    if (recvd < 0) {
+        return -1;
+    }
+
+    if (!NLMSG_OK(resp, recvd)) {
+        errno = -EOVERFLOW;
+        return -1;
+    }
+
+    if (NL_ISERROR(resp)) {
+        errno = -NL_ERROR_NO(resp);
+        return -1;
+    }
+
+    memmove(buf, NLMSG_DATA(resp), resp->nlmsg_len);
+
+    return recvd;
+}
+
+/**
+ * rt_simple_request sends an rtnetlink request message and parses the
+ * acknowledgement reponse.
+ */
+static int rt_simple_request(const struct ifinfomsg *req, size_t req_len, 
+        uint16_t type, uint16_t flags)
+{
     struct nlmsghdr *resp;
     ssize_t recvd;
     int err = 0;
@@ -46,13 +106,8 @@ int rt_delete_link(int index)
         return -1;
     }
 
-    memset(&req, 0, sizeof req);
-    req.ifi_family = AF_UNSPEC;
-    req.ifi_change = 0xFFFFFFFF;
-    req.ifi_index = index;
-
-    recvd = rt_sync(&req, sizeof req, RTM_DELLINK,
-                NLM_F_REQUEST | NLM_F_ACK, resp, RT_DGRAM_SIZE);
+    recvd = rt_sync(&req, req_len, type, flags | NLM_F_ACK, resp,
+                RT_DGRAM_SIZE);
     if (recvd < 0) {
         err = -1;
         goto clean_buf;
@@ -60,7 +115,7 @@ int rt_delete_link(int index)
 
     if (NL_ISERROR(resp)) {
         errno = -NL_ERROR_NO(resp);
-        return -1;
+        goto clean_buf;
     }
 
     if (!NL_ISACK(resp)) {
@@ -73,86 +128,9 @@ clean_buf:
     return err;
 }
 
-int rt_set_link_flags(int index, uint32_t flags)
-{
-    struct ifinfomsg req;
-    struct nlmsghdr *reply;
-    ssize_t recvd;
-    int err = 0;
-
-    reply = calloc(RT_DGRAM_SIZE, 1);
-    if (reply == NULL) {
-        return -1;
-    }
-
-    memset(&req, 0, sizeof req);
-    req.ifi_family = AF_UNSPEC;
-    req.ifi_change = 0xFFFFFFFF;
-    req.ifi_index = index;
-    req.ifi_flags = flags;
-
-    recvd = rt_sync(&req, sizeof req, RTM_NEWLINK,
-                NLM_F_REQUEST | NLM_F_ACK, reply, RT_DGRAM_SIZE);
-    if (recvd < 0) {
-        err = -1;
-        goto clean_buf;
-    }
-
-    if (NL_ISERROR(reply)) {
-        errno = -NL_ERROR_NO(reply);
-        return -1;
-    }
-
-    if (!NL_ISACK(reply)) {
-        err = -1;
-        goto clean_buf;
-    }
-
-clean_buf:
-    free(reply);
-    return err;
-}
-
-ssize_t rt_link_info(int index, void *buf, size_t len)
-{
-    struct ifinfomsg req;
-    struct nlmsghdr *reply;
-    ssize_t recvd;
-
-    if (buf == NULL) {
-        errno = EINVAL;
-        return -1;
-    }
-    reply = buf;
-
-    memset(&req, 0, sizeof req);
-    req.ifi_family = AF_UNSPEC;
-    req.ifi_change = 0xFFFFFFFF;
-    req.ifi_index = index;
-
-    recvd = rt_sync(&req, sizeof req, RTM_GETLINK, NLM_F_REQUEST, buf, len);
-    if (recvd < 0) {
-        return -1;
-    }
-
-    if (!NLMSG_OK(reply, recvd)) {
-        errno = -EOVERFLOW;
-        return -1;
-    }
-
-    if (NL_ISERROR(reply)) {
-        errno = -NL_ERROR_NO(reply);
-        return -1;
-    }
-
-    memmove(buf, NLMSG_DATA(reply), reply->nlmsg_len);
-
-    return recvd;
-}
-
 /**
  * rt_sync sends a message to the kernel and synchronously receives a single
- * netlink reply message.
+ * netlink response message.
  *
  * @return  bytes received, -1 on error
  */

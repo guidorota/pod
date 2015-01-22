@@ -11,6 +11,13 @@
 #define RT_DGRAM_SIZE sysconf(_SC_PAGESIZE)
 
 /**
+ * rt_link_create creates a new link.
+ *
+ * @return  0 on success, -1 on failure
+ */
+int rt_link_create(struct ifinfomsg *info, size_t info_len);
+
+/**
  * rt_link_info collects information about the interface whose index is passed
  * as parameter.
  *
