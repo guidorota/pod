@@ -10,10 +10,6 @@ static int net_set_flags(char *ifname, uint32_t set, uint32_t unset);
 static bool net_check_ifname(const char *ifname);
 static int net_ifindex(const char *ifname);
 
-int net_create_veth(const char *name1, const char *name2)
-{
-}
-
 int net_delete(char *ifname)
 {
     int i;
@@ -46,6 +42,7 @@ static int net_set_flags(char *ifname, uint32_t set, uint32_t unset)
     int i;
     uint32_t flags;
     struct rt_ifinfo *info;
+    struct ifinfomsg *ifinfo;
 
     i = net_ifindex(ifname);
     if (i < 0) {
@@ -57,7 +54,9 @@ static int net_set_flags(char *ifname, uint32_t set, uint32_t unset)
         return -1;
     }
 
-    flags = info->info.ifi_flags;
+    ifinfo = rt_ifinfo_get_ifinfomsg(info);
+
+    flags = ifinfo->ifi_flags;
     flags |= set;
     flags &= ~unset;
     rt_ifinfo_free(info);

@@ -27,21 +27,250 @@
  */
 #define RT_RTA_FIRST(hdr) ((struct rtattr *) ((char *) hdr + RT_RTA_OFFSET))
 
+/*
+ * struct rt_ifinfo management functions
+ */
+
+struct rt_attlist {
+    struct rtattr *list[RT_MAX_ATTS];
+};
+
+struct rt_ifinfo {
+    struct ifinfomsg info;
+    struct rt_attlist *atts;
+};
+
+static struct rt_ifinfo *rt_ifinfo_decode(struct nlmsghdr *msg, size_t len);
+static struct rt_attlist *rt_attlist_decode(struct rtattr *rta, size_t len);
+static struct rtattr *rt_copy_rtattr(struct rtattr *rta);
+
+struct rt_ifinfo *rt_ifinfo_create()
+{
+    struct rt_ifinfo *info;
+
+    info = calloc(1, sizeof (struct rt_ifinfo));
+    if (info == NULL) {
+        return NULL;
+    }
+
+    info->atts = rt_attlist_create();
+    if (info->atts == NULL) {
+        free(info);
+        return NULL;
+    }
+
+    return info;
+}
+
+struct rt_attlist *rt_attlist_create()
+{
+    return calloc(1, sizeof (struct rt_attlist));
+}
+
+struct ifinfomsg *rt_ifinfo_get_ifinfomsg(struct rt_ifinfo *info)
+{
+    if (info == NULL) {
+        return NULL;
+    }
+
+    return &info->info;
+}
+
+ssize_t rt_encode_ifinfomsg(struct rt_ifinfo *info, void *buf, size_t len)
+{
+    ssize_t copied = 0;
+
+    if (len < NLMSG_HDRLEN) {
+        goto overflow;
+    }
+    memcpy(buf, &info->info, sizeof info->info);
+
+    copied = rt_attlist_encode(info->atts, buf + NLMSG_HDRLEN,
+            len - NLMSG_HDRLEN); 
+    if (copied == -1) {
+        goto overflow;
+    }
+
+    return copied + NLMSG_HDRLEN;
+
+overflow:
+    errno = EOVERFLOW;
+    return -1;
+}
+
+ssize_t rt_attlist_encode(struct rt_attlist *atts, void *buf, size_t len)
+{
+    int i;
+    size_t copied = 0;
+    struct rtattr *rta;
+
+    for (i = 0; i < RT_MAX_ATTS; i++) {
+        rta = atts->list[i];
+        if (rta == NULL) {
+            continue;
+        }
+        if (len < copied + (size_t) rta->rta_len) {
+            goto overflow;
+        }
+        memcpy(buf, rta, rta->rta_len);
+        buf += NLMSG_ALIGN(rta->rta_len);
+        copied += NLMSG_ALIGN(rta->rta_len);
+    }
+
+    return copied;
+
+overflow:
+    errno = EOVERFLOW;
+    return -1;
+}
+
+int rt_attlist_add(struct rt_attlist *atts, unsigned short type,
+        const void *buf, size_t len)
+{
+    struct rtattr *rta;
+
+    if (atts == NULL || type > RT_MAX_ATTS || buf == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    rta = calloc(RTA_SPACE(len), 1);
+    if (rta == NULL) {
+        return -1;
+    }
+    
+    rta->rta_type = type;
+    rta->rta_len = RTA_LENGTH(len);
+    memcpy(RTA_DATA(rta), buf, len);
+
+    if (atts->list[type] != NULL) {
+        free(atts->list[type]);
+    }
+    atts->list[type] = rta;
+
+    return 0;
+}
+
+/**
+ * rt_decode_ifinfomsg decodes the contents of an ifinfomsg rtnetlink
+ * structure.
+ *
+ * @return  NULL in case of error
+ */
+static struct rt_ifinfo *rt_ifinfo_decode(struct nlmsghdr *hdr, size_t len)
+{
+    struct rt_ifinfo *info;
+
+    if (hdr == NULL || len < RT_RTA_OFFSET) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    if (NL_ISERROR(hdr)) {
+        errno = -NL_ERROR_NO(hdr);
+        return NULL;
+    }
+
+    info = calloc(1, sizeof *info);
+    if (info == NULL) {
+        return NULL;
+    }
+
+    memcpy(&info->info, NLMSG_DATA(hdr), sizeof info->info); 
+    
+    info->atts = rt_attlist_decode(RT_RTA_FIRST(hdr), len - RT_RTA_OFFSET);
+    if (info->atts == NULL) {
+        free(info);
+        return NULL;
+    }
+
+    return info;
+}
+
+static struct rt_attlist *rt_attlist_decode(struct rtattr *rta, size_t len)
+{
+    struct rt_attlist *atts;
+    struct rtattr *rta_copy;
+
+    atts = rt_attlist_create();
+    if (atts == NULL) {
+        return NULL;
+    }
+
+    for (; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
+        rta_copy = rt_copy_rtattr(rta);
+        if (rta_copy == NULL) {
+            rt_attlist_free(atts);
+            return NULL; 
+        }
+        atts->list[rta->rta_type] = rta_copy;
+    }
+
+    return atts;
+}
+
+/**
+ * rt_copy_rta creates a copy of a rtnetlink interface attribute.
+ *
+ * @return  NULL in case of error
+ */
+static struct rtattr *rt_copy_rtattr(struct rtattr *rta)
+{
+    struct rtattr *copy;
+
+    if (rta == NULL) {
+        return NULL;
+    }
+    
+    copy = malloc(rta->rta_len);
+    if (copy == NULL) {
+        return NULL;
+    }
+
+    memcpy(copy, rta, rta->rta_len);
+    return copy;
+}
+
+void rt_ifinfo_free(struct rt_ifinfo *ifinfo)
+{
+    if (ifinfo == NULL) {
+        return;
+    }
+
+    rt_attlist_free(ifinfo->atts);
+
+    free(ifinfo);
+}
+
+void rt_attlist_free(struct rt_attlist *atts)
+{
+    int i;
+
+    if (atts == NULL) {
+        return;
+    }
+
+    for (i = 0; i < RT_MAX_ATTS; i++) {
+        if (atts->list[i] == NULL) {
+            continue;
+        }
+        free(atts->list[i]);
+    }
+
+    free(atts);
+}
+
 
 // kernel netlink address
 const struct sockaddr_nl kernel = { AF_NETLINK, 0, 0, 0 };
 
-// struct rt_ifinfo management
-static struct rt_ifinfo *rt_decode_ifinfomsg(struct nlmsghdr *msg, size_t len);
-static struct rtattr **rt_decode_rtattr(struct rtattr *rta, size_t len);
-static struct rtattr *rt_copy_rtattr(struct rtattr *rta);
-static void rt_ifinfo_free_atts(struct rtattr **atts);
-
+// communication utility functions
 static ssize_t rt_sync(const void *req_buf, size_t req_len, uint16_t type,
         uint16_t flags, struct nlmsghdr *reply_buf, size_t reply_len);
 static bool rt_is_kernel(const struct sockaddr_storage *addr,
         socklen_t addrlen);
 
+/*
 int rt_create_veth(const char *name1, const char *name2)
 {
     struct ifinfomsg req;
@@ -55,6 +284,7 @@ int rt_create_veth(const char *name1, const char *name2)
 
     return 0;
 }
+*/
 
 int rt_delete(int index)
 {
@@ -160,7 +390,7 @@ struct rt_ifinfo *rt_get_ifinfo(int index)
         goto clean_buffer;
     }
 
-    info = rt_decode_ifinfomsg(buf, recvd);
+    info = rt_ifinfo_decode(buf, recvd);
     if (info == NULL) {
         goto clean_buffer;
     }
@@ -168,163 +398,6 @@ struct rt_ifinfo *rt_get_ifinfo(int index)
 clean_buffer:
     free(buf);
     return info;
-}
-
-ssize_t rt_encode_ifinfomsg(struct rt_ifinfo *info, void *buf, size_t len)
-{
-    ssize_t copied = 0;
-
-    if (len < NLMSG_HDRLEN) {
-        goto overflow;
-    }
-    memcpy(buf, &info->info, sizeof info->info);
-
-    copied = rt_encode_rtattr(info->atts, buf + NLMSG_HDRLEN,
-            len - NLMSG_HDRLEN); 
-    if (copied == -1) {
-        goto overflow;
-    }
-
-    return copied + NLMSG_HDRLEN;
-
-overflow:
-    errno = EOVERFLOW;
-    return -1;
-}
-
-ssize_t rt_encode_rtattr(struct rtattr **atts, void *buf, size_t len)
-{
-    int i;
-    size_t copied = 0;
-    struct rtattr *rta;
-
-    for (i = 0; i < RT_MAX_ATTS; i++) {
-        rta = atts[i];
-        if (rta == NULL) {
-            continue;
-        }
-        if (len < copied + (size_t) rta->rta_len) {
-            goto overflow;
-        }
-        memcpy(buf, rta, rta->rta_len);
-        buf += NLMSG_ALIGN(rta->rta_len);
-        copied += NLMSG_ALIGN(rta->rta_len);
-    }
-
-    return copied;
-
-overflow:
-    errno = EOVERFLOW;
-    return -1;
-}
-
-/**
- * rt_decode_ifinfomsg decodes the contents of an ifinfomsg rtnetlink
- * structure.
- *
- * @return  NULL in case of error
- */
-static struct rt_ifinfo *rt_decode_ifinfomsg(struct nlmsghdr *hdr, size_t len)
-{
-    struct rt_ifinfo *info;
-
-    if (hdr == NULL || len < RT_RTA_OFFSET) {
-        errno = EINVAL;
-        return NULL;
-    }
-
-    if (NL_ISERROR(hdr)) {
-        errno = -NL_ERROR_NO(hdr);
-        return NULL;
-    }
-
-    info = calloc(1, sizeof *info);
-    if (info == NULL) {
-        return NULL;
-    }
-
-    memcpy(&info->info, NLMSG_DATA(hdr), sizeof info->info); 
-    
-    info->atts = rt_decode_rtattr(RT_RTA_FIRST(hdr), len - RT_RTA_OFFSET);
-    if (info->atts == NULL) {
-        free(info);
-        return NULL;
-    }
-
-    return info;
-}
-
-static struct rtattr **rt_decode_rtattr(struct rtattr *rta, size_t len)
-{
-    struct rtattr *rta_copy;
-    struct rtattr **atts;
-
-    atts = calloc(RT_MAX_ATTS, sizeof (struct rtattr *));
-    if (atts == NULL) {
-        return NULL;
-    }
-
-    for (; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
-        rta_copy = rt_copy_rtattr(rta);
-        if (rta_copy == NULL) {
-            rt_ifinfo_free_atts(atts);
-            return NULL; 
-        }
-        atts[rta->rta_type] = rta_copy;
-    }
-
-    return atts;
-}
-
-/**
- * rt_copy_rta creates a copy of a rtnetlink interface attribute.
- *
- * @return  NULL in case of error
- */
-static struct rtattr *rt_copy_rtattr(struct rtattr *rta)
-{
-    struct rtattr *copy;
-
-    if (rta == NULL) {
-        return NULL;
-    }
-    
-    copy = malloc(rta->rta_len);
-    if (copy == NULL) {
-        return NULL;
-    }
-
-    memcpy(copy, rta, rta->rta_len);
-    return copy;
-}
-
-void rt_ifinfo_free(struct rt_ifinfo *ifinfo)
-{
-    if (ifinfo == NULL) {
-        return;
-    }
-
-    rt_ifinfo_free_atts(ifinfo->atts);
-
-    free(ifinfo);
-}
-
-static void rt_ifinfo_free_atts(struct rtattr **atts)
-{
-    int i;
-
-    if (atts == NULL) {
-        return;
-    }
-
-    for (i = 0; i < RT_MAX_ATTS; i++) {
-        if (atts[i] == NULL) {
-            continue;
-        }
-        free(atts[i]);
-    }
-
-    free(atts);
 }
 
 /**
