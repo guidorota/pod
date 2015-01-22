@@ -9,258 +9,6 @@
 #include "rt_rtnetlink.h"
 #include "nl_netlink.h"
 
-/**
- * Typical size of a rtnetlink datagram message.
- */
-#define RT_DGRAM_SIZE sysconf(_SC_PAGESIZE)
-
-/**
- * Offset of the first rtattr byte inside a netlink packet containing a struct
- * ifinfomsg.
- */
-#define RT_RTA_OFFSET (NLMSG_ALIGN(sizeof (struct nlmsghdr)) + \
-        NLMSG_ALIGN(sizeof (struct ifinfomsg)))
-
-/**
- * Address of the first rtattr in a netlink packet containing a struct
- * ifinfomsg.
- */
-#define RT_RTA_FIRST(hdr) ((struct rtattr *) ((char *) hdr + RT_RTA_OFFSET))
-
-/*
- * struct rt_ifinfo management functions
- */
-
-struct rt_attlist {
-    struct rtattr *list[RT_MAX_ATTS];
-};
-
-struct rt_ifinfo {
-    struct ifinfomsg info;
-    struct rt_attlist *atts;
-};
-
-static struct rt_ifinfo *rt_ifinfo_decode(struct nlmsghdr *msg, size_t len);
-static struct rt_attlist *rt_attlist_decode(struct rtattr *rta, size_t len);
-static struct rtattr *rt_copy_rtattr(struct rtattr *rta);
-
-struct rt_ifinfo *rt_ifinfo_create()
-{
-    struct rt_ifinfo *info;
-
-    info = calloc(1, sizeof (struct rt_ifinfo));
-    if (info == NULL) {
-        return NULL;
-    }
-
-    info->atts = rt_attlist_create();
-    if (info->atts == NULL) {
-        free(info);
-        return NULL;
-    }
-
-    return info;
-}
-
-struct rt_attlist *rt_attlist_create()
-{
-    return calloc(1, sizeof (struct rt_attlist));
-}
-
-struct ifinfomsg *rt_ifinfo_get_ifinfomsg(struct rt_ifinfo *info)
-{
-    if (info == NULL) {
-        return NULL;
-    }
-
-    return &info->info;
-}
-
-ssize_t rt_encode_ifinfomsg(struct rt_ifinfo *info, void *buf, size_t len)
-{
-    ssize_t copied = 0;
-
-    if (len < NLMSG_HDRLEN) {
-        goto overflow;
-    }
-    memcpy(buf, &info->info, sizeof info->info);
-
-    copied = rt_attlist_encode(info->atts, buf + NLMSG_HDRLEN,
-            len - NLMSG_HDRLEN); 
-    if (copied == -1) {
-        goto overflow;
-    }
-
-    return copied + NLMSG_HDRLEN;
-
-overflow:
-    errno = EOVERFLOW;
-    return -1;
-}
-
-ssize_t rt_attlist_encode(struct rt_attlist *atts, void *buf, size_t len)
-{
-    int i;
-    size_t copied = 0;
-    struct rtattr *rta;
-
-    for (i = 0; i < RT_MAX_ATTS; i++) {
-        rta = atts->list[i];
-        if (rta == NULL) {
-            continue;
-        }
-        if (len < copied + (size_t) rta->rta_len) {
-            goto overflow;
-        }
-        memcpy(buf, rta, rta->rta_len);
-        buf += NLMSG_ALIGN(rta->rta_len);
-        copied += NLMSG_ALIGN(rta->rta_len);
-    }
-
-    return copied;
-
-overflow:
-    errno = EOVERFLOW;
-    return -1;
-}
-
-int rt_attlist_add(struct rt_attlist *atts, unsigned short type,
-        const void *buf, size_t len)
-{
-    struct rtattr *rta;
-
-    if (atts == NULL || type > RT_MAX_ATTS || buf == NULL) {
-        errno = EINVAL;
-        return -1;
-    }
-
-    rta = calloc(RTA_SPACE(len), 1);
-    if (rta == NULL) {
-        return -1;
-    }
-    
-    rta->rta_type = type;
-    rta->rta_len = RTA_LENGTH(len);
-    memcpy(RTA_DATA(rta), buf, len);
-
-    if (atts->list[type] != NULL) {
-        free(atts->list[type]);
-    }
-    atts->list[type] = rta;
-
-    return 0;
-}
-
-/**
- * rt_decode_ifinfomsg decodes the contents of an ifinfomsg rtnetlink
- * structure.
- *
- * @return  NULL in case of error
- */
-static struct rt_ifinfo *rt_ifinfo_decode(struct nlmsghdr *hdr, size_t len)
-{
-    struct rt_ifinfo *info;
-
-    if (hdr == NULL || len < RT_RTA_OFFSET) {
-        errno = EINVAL;
-        return NULL;
-    }
-
-    if (NL_ISERROR(hdr)) {
-        errno = -NL_ERROR_NO(hdr);
-        return NULL;
-    }
-
-    info = calloc(1, sizeof *info);
-    if (info == NULL) {
-        return NULL;
-    }
-
-    memcpy(&info->info, NLMSG_DATA(hdr), sizeof info->info); 
-    
-    info->atts = rt_attlist_decode(RT_RTA_FIRST(hdr), len - RT_RTA_OFFSET);
-    if (info->atts == NULL) {
-        free(info);
-        return NULL;
-    }
-
-    return info;
-}
-
-static struct rt_attlist *rt_attlist_decode(struct rtattr *rta, size_t len)
-{
-    struct rt_attlist *atts;
-    struct rtattr *rta_copy;
-
-    atts = rt_attlist_create();
-    if (atts == NULL) {
-        return NULL;
-    }
-
-    for (; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
-        rta_copy = rt_copy_rtattr(rta);
-        if (rta_copy == NULL) {
-            rt_attlist_free(atts);
-            return NULL; 
-        }
-        atts->list[rta->rta_type] = rta_copy;
-    }
-
-    return atts;
-}
-
-/**
- * rt_copy_rta creates a copy of a rtnetlink interface attribute.
- *
- * @return  NULL in case of error
- */
-static struct rtattr *rt_copy_rtattr(struct rtattr *rta)
-{
-    struct rtattr *copy;
-
-    if (rta == NULL) {
-        return NULL;
-    }
-    
-    copy = malloc(rta->rta_len);
-    if (copy == NULL) {
-        return NULL;
-    }
-
-    memcpy(copy, rta, rta->rta_len);
-    return copy;
-}
-
-void rt_ifinfo_free(struct rt_ifinfo *ifinfo)
-{
-    if (ifinfo == NULL) {
-        return;
-    }
-
-    rt_attlist_free(ifinfo->atts);
-
-    free(ifinfo);
-}
-
-void rt_attlist_free(struct rt_attlist *atts)
-{
-    int i;
-
-    if (atts == NULL) {
-        return;
-    }
-
-    for (i = 0; i < RT_MAX_ATTS; i++) {
-        if (atts->list[i] == NULL) {
-            continue;
-        }
-        free(atts->list[i]);
-    }
-
-    free(atts);
-}
-
-
 // kernel netlink address
 const struct sockaddr_nl kernel = { AF_NETLINK, 0, 0, 0 };
 
@@ -286,15 +34,14 @@ int rt_create_veth(const char *name1, const char *name2)
 }
 */
 
-int rt_delete(int index)
+int rt_delete_link(int index)
 {
     struct ifinfomsg req;
     struct nlmsghdr *resp;
-    ssize_t buflen = RT_DGRAM_SIZE;
     ssize_t recvd;
     int err = 0;
 
-    resp = calloc(buflen, 1);
+    resp = calloc(RT_DGRAM_SIZE, 1);
     if (resp == NULL) {
         return -1;
     }
@@ -305,7 +52,7 @@ int rt_delete(int index)
     req.ifi_index = index;
 
     recvd = rt_sync(&req, sizeof req, RTM_DELLINK,
-                NLM_F_REQUEST | NLM_F_ACK, resp, buflen);
+                NLM_F_REQUEST | NLM_F_ACK, resp, RT_DGRAM_SIZE);
     if (recvd < 0) {
         err = -1;
         goto clean_buf;
@@ -326,16 +73,15 @@ clean_buf:
     return err;
 }
 
-int rt_set_flags(int index, uint32_t flags)
+int rt_set_link_flags(int index, uint32_t flags)
 {
     struct ifinfomsg req;
-    struct nlmsghdr *hdr;
-    size_t buflen = RT_DGRAM_SIZE;
+    struct nlmsghdr *reply;
     ssize_t recvd;
     int err = 0;
 
-    hdr = calloc(buflen, 1);
-    if (hdr == NULL) {
+    reply = calloc(RT_DGRAM_SIZE, 1);
+    if (reply == NULL) {
         return -1;
     }
 
@@ -346,58 +92,62 @@ int rt_set_flags(int index, uint32_t flags)
     req.ifi_flags = flags;
 
     recvd = rt_sync(&req, sizeof req, RTM_NEWLINK,
-                NLM_F_REQUEST | NLM_F_ACK, hdr, buflen);
+                NLM_F_REQUEST | NLM_F_ACK, reply, RT_DGRAM_SIZE);
     if (recvd < 0) {
         err = -1;
         goto clean_buf;
     }
 
-    if (NL_ISERROR(hdr)) {
-        errno = -NL_ERROR_NO(hdr);
+    if (NL_ISERROR(reply)) {
+        errno = -NL_ERROR_NO(reply);
         return -1;
     }
 
-    if (!NL_ISACK(hdr)) {
+    if (!NL_ISACK(reply)) {
         err = -1;
         goto clean_buf;
     }
 
 clean_buf:
-    free(hdr);
+    free(reply);
     return err;
 }
 
-struct rt_ifinfo *rt_get_ifinfo(int index)
+ssize_t rt_link_info(int index, void *buf, size_t len)
 {
     struct ifinfomsg req;
-    struct rt_ifinfo *info = NULL;
-    struct nlmsghdr *buf;
-    size_t buflen = RT_DGRAM_SIZE;
+    struct nlmsghdr *reply;
     ssize_t recvd;
 
-    buf = calloc(buflen, 1);
     if (buf == NULL) {
-        return NULL;
+        errno = EINVAL;
+        return -1;
     }
+    reply = buf;
 
     memset(&req, 0, sizeof req);
     req.ifi_family = AF_UNSPEC;
     req.ifi_change = 0xFFFFFFFF;
     req.ifi_index = index;
 
-    recvd = rt_sync(&req, sizeof req, RTM_GETLINK, NLM_F_REQUEST, buf, buflen);
+    recvd = rt_sync(&req, sizeof req, RTM_GETLINK, NLM_F_REQUEST, buf, len);
     if (recvd < 0) {
-        goto clean_buffer;
+        return -1;
     }
 
-    info = rt_ifinfo_decode(buf, recvd);
-    if (info == NULL) {
-        goto clean_buffer;
+    if (!NLMSG_OK(reply, recvd)) {
+        errno = -EOVERFLOW;
+        return -1;
     }
 
-clean_buffer:
-    free(buf);
-    return info;
+    if (NL_ISERROR(reply)) {
+        errno = -NL_ERROR_NO(reply);
+        return -1;
+    }
+
+    memmove(buf, NLMSG_DATA(reply), reply->nlmsg_len);
+
+    return recvd;
 }
 
 /**
@@ -425,7 +175,8 @@ static ssize_t rt_sync(const void *req_buf, size_t req_len, uint16_t type,
         goto close_conn;
     }
 
-    recvd = nl_recv(c, reply_buf, reply_len, (struct sockaddr *) &addr, &addrlen);
+    recvd = nl_recv(c, reply_buf, reply_len,
+                 (struct sockaddr *) &addr, &addrlen);
     if (recvd < 0) {
         goto close_conn;
     }

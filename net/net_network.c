@@ -12,14 +12,13 @@ static int net_ifindex(const char *ifname);
 
 int net_delete(char *ifname)
 {
-    int i;
-
+    int i; 
     i = net_ifindex(ifname);
     if (i < 0) {
         return -1;
     }
 
-    return rt_delete(i);
+    return rt_delete_link(i);
 }
 
 int net_up(char *ifname)
@@ -41,53 +40,63 @@ static int net_set_flags(char *ifname, uint32_t set, uint32_t unset)
 {
     int i;
     uint32_t flags;
-    struct rt_ifinfo *info;
-    struct ifinfomsg *ifinfo;
+    struct ifinfomsg *info;
+    ssize_t info_len;
 
     i = net_ifindex(ifname);
     if (i < 0) {
         return -1;
     }
-    
-    info = rt_get_ifinfo(i);
+
+    info = calloc(RT_DGRAM_SIZE, 1);
     if (info == NULL) {
         return -1;
     }
 
-    ifinfo = rt_ifinfo_get_ifinfomsg(info);
+    info_len = rt_link_info(i, info, RT_DGRAM_SIZE);
+    if (info_len < 0) {
+        goto free_buffer;
+    }
 
-    flags = ifinfo->ifi_flags;
+    flags = info->ifi_flags;
     flags |= set;
     flags &= ~unset;
-    rt_ifinfo_free(info);
 
-    if (rt_set_flags(i, flags) < 0) {
-        return -1;
+    if (rt_set_link_flags(i, flags) < 0) {
+        goto free_buffer;
     }
 
     return 0;
+
+free_buffer:
+    free(info);
+    return -1;
 }
 
 int net_is_up(char *ifname)
 {
     int i;
     int up;
-    struct rt_ifinfo *info;
+    struct ifinfomsg *info;
+    ssize_t info_len;
 
     i = net_ifindex(ifname);
     if (i < 0) {
         return -1;
     }
 
-    info = rt_get_ifinfo(i);
+    info = calloc(RT_DGRAM_SIZE, 1);
     if (info == NULL) {
         return -1;
     }
 
-    up = info->info.ifi_flags & IFF_UP;
-    rt_ifinfo_free(info);
+    info_len = rt_link_info(i, info, RT_DGRAM_SIZE);
+    if (info_len < 0) {
+        free(info);
+        return -1;
+    }
 
-    return up;
+    return info->ifi_flags & IFF_UP;
 }
 
 /**
