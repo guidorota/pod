@@ -85,6 +85,8 @@ ssize_t rt_link_info(int index, void *buf, size_t len)
         return -1;
     }
 
+    // delete netlink header, move struct ifinfomsg at the beginning of the
+    // buffer
     memmove(buf, NLMSG_DATA(resp), resp->nlmsg_len);
 
     return recvd;
@@ -115,6 +117,7 @@ static int rt_simple_request(const struct ifinfomsg *req, size_t req_len,
 
     if (NL_ISERROR(resp)) {
         errno = -NL_ERROR_NO(resp);
+        err = -1;
         goto clean_buf;
     }
 
