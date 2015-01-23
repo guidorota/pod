@@ -14,4 +14,6 @@ Attributes:
     - IFLA_LINKINFO
         - IFLA_INFO_KIND string, defines the type of interface to create
         - IFLA_INFO_DATA
-            - VETH_INFO_PEER ifinfomsg + trailing rtattr
+            - VETH_INFO_PEER
+                - ifinfomsg
+                - IFLA_IFNAME

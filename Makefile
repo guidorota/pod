@@ -1,4 +1,4 @@
-CFLAGS := -ggdb $(CFLAGS)
+CFLAGS := -ggdb -Wall $(CFLAGS)
 
 .SUFFIXES:
 .SUFFIXES: .o .c

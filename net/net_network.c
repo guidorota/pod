@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/socket.h>
+#include <linux/veth.h>
 #include "net_network.h"
 #include "rt_rtnetlink.h"
 
@@ -18,6 +19,7 @@ int net_create_veth(const char *name, const char *peer_name)
     struct ifinfomsg info;
     struct rt_encoder *enc;
     struct rt_encoder *linfo;
+    struct rt_encoder *idata;
     struct rt_encoder *pinfo;
 
     if (name == NULL || peer_name == NULL ||
@@ -30,7 +32,7 @@ int net_create_veth(const char *name, const char *peer_name)
     memset(&info, 0, sizeof info);
     info.ifi_family = AF_UNSPEC;
     info.ifi_change = 0xFFFFFFFF;
-    info.ifi_flags |= IFF_UP;
+    info.ifi_flags |= IFF_MULTICAST;
 
     pinfo = rt_enc_create();
     if (pinfo == NULL) {
@@ -44,15 +46,23 @@ int net_create_veth(const char *name, const char *peer_name)
         goto err_free_pinfo;
     }
 
+    idata = rt_enc_create();
+    if (idata == NULL) {
+        goto err_free_pinfo;
+    }
+    if (rt_enc_attribute(idata, VETH_INFO_PEER, pinfo->buf, pinfo->len) < 0) {
+        goto err_free_idata;
+    }
+
     linfo = rt_enc_create();
     if (linfo == NULL) {
-        goto err_free_enc;
+        goto err_free_idata;
     }
     if (rt_enc_attribute(linfo, IFLA_INFO_KIND, NET_LINK_VETH,
                 strlen(NET_LINK_VETH)) < 0) {
         goto err_free_linfo;
     }
-    if (rt_enc_attribute(linfo, IFLA_INFO_DATA, pinfo->buf, pinfo->len) < 0) {
+    if (rt_enc_attribute(linfo, IFLA_INFO_DATA, idata->buf, idata->len) < 0) {
         goto err_free_linfo;
     }
 
@@ -76,6 +86,8 @@ err_free_enc:
     rt_enc_free(enc);
 err_free_linfo:
     rt_enc_free(linfo);
+err_free_idata:
+    rt_enc_free(idata);
 err_free_pinfo:
     rt_enc_free(pinfo);
     return err;
@@ -147,7 +159,6 @@ free_buffer:
 int net_is_up(char *ifname)
 {
     int i;
-    int up;
     struct ifinfomsg *info;
     ssize_t info_len;
 

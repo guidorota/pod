@@ -11,26 +11,27 @@ void print_usage(char *cmd)
 int main_create_veth(char *basename)
 {
     int err = -1;
-    char *main;
-    char *peer;
-    main = calloc(1, IF_NAMESIZE);
-    if (main == NULL) {
-        return -1;
-    }
-    strncpy(main, basename, NET_NAMESIZE - 3);
-    strcat(main, "_0");
+    char *name1;
+    char *name2;
 
-    peer = calloc(1, IF_NAMESIZE);
-    if (peer == NULL) {
-        free(main);
+    name1 = calloc(1, IF_NAMESIZE);
+    if (name1 == NULL) {
         return -1;
     }
-    strncpy(peer, basename, NET_NAMESIZE - 3);
-    strcat(peer, "_1");
+    strncpy(name1, basename, NET_NAMESIZE - 3);
+    strcat(name1, "_0");
+
+    name2 = calloc(1, IF_NAMESIZE);
+    if (name2 == NULL) {
+        free(name1);
+        return -1;
+    }
+    strncpy(name2, basename, NET_NAMESIZE - 3);
+    strcat(name2, "_1");
     err = net_create_veth("veth0_0", "veth0_1");
 
-    free(main);
-    free(peer);
+    free(name1);
+    free(name2);
     return err;
 }
 
