@@ -93,8 +93,6 @@ static int rt_simple_request(const struct ifinfomsg *req_buf, size_t req_len,
         uint16_t type, uint16_t flags);
 static ssize_t rt_sync(const void *req_buf, size_t req_len, uint16_t type,
         uint16_t flags, struct nlmsghdr *reply_buf, size_t reply_len);
-static bool rt_is_kernel(const struct sockaddr_storage *addr,
-        socklen_t addrlen);
 
 int rt_link_create(struct ifinfomsg *info, size_t info_len)
 {
@@ -125,8 +123,8 @@ int rt_link_set_flags(int index, uint32_t flags)
     req.ifi_index = index;
     req.ifi_flags = flags;
 
-    return rt_simple_request(&req, sizeof req, RTM_DELLINK,
-                NLM_F_REQUEST | NLM_F_ACK);
+    return rt_simple_request(&req, sizeof req, RTM_NEWLINK,
+            NLM_F_REQUEST | NLM_F_ACK);
 }
 
 ssize_t rt_link_info(int index, void *buf, size_t len)
@@ -184,7 +182,7 @@ static int rt_simple_request(const struct ifinfomsg *req, size_t req_len,
         return -1;
     }
 
-    recvd = rt_sync(&req, req_len, type, flags | NLM_F_ACK, resp,
+    recvd = rt_sync(req, req_len, type, flags | NLM_F_ACK, resp,
                 RT_DGRAM_SIZE);
     if (recvd < 0) {
         err = -1;
@@ -238,10 +236,6 @@ static ssize_t rt_sync(const void *req_buf, size_t req_len, uint16_t type,
         goto close_conn;
     }
 
-    if (!rt_is_kernel(&addr, addrlen)) {
-        recvd = -1;
-        goto close_conn;
-    }
     if (reply_buf->nlmsg_seq != (uint32_t) seq) {
         recvd = -1;
     }
@@ -249,21 +243,4 @@ static ssize_t rt_sync(const void *req_buf, size_t req_len, uint16_t type,
 close_conn:
     nl_close(c);
     return recvd;
-}
-                
-/**
- * rt_is_kernel checks if the address structure passed as parameter is a valid
- * netlink kernel address.
- */
-static bool rt_is_kernel(const struct sockaddr_storage *addr,
-        socklen_t addrlen)
-{
-    if (addrlen != sizeof (struct sockaddr_nl)) {
-        return -1;
-    }
-
-    if (((struct sockaddr_nl *)addr)->nl_pid != 0) {
-        return false;
-    }
-    return true;
 }

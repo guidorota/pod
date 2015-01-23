@@ -64,7 +64,7 @@ int main(int argc, char **argv)
     }
 
     if (err < 0) {
-        printf("error\n");
+        perror("Error");
         exit(EXIT_FAILURE);
     }
 
