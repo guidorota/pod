@@ -1,4 +1,4 @@
-CFLAGS := -ggdb -Werror -Wall -std=c11 -pedantic $(CFLAGS)
+CFLAGS := -ggdb -D_GNU_SOURCE -Werror -Wall -std=c11 -pedantic $(CFLAGS)
 
 .SUFFIXES:
 .SUFFIXES: .o .c
