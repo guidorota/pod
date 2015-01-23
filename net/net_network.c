@@ -38,7 +38,7 @@ int net_create_veth(const char *name, const char *peer_name)
     if (pinfo == NULL) {
         return -1;
     }
-    if (rt_enc_ifinfomsg(pinfo, &info) < 0) {
+    if (rt_enc_data(pinfo, &info, sizeof info) < 0) {
         goto err_free_pinfo;
     }
     if (rt_enc_attribute(pinfo, IFLA_IFNAME, peer_name,
@@ -70,7 +70,7 @@ int net_create_veth(const char *name, const char *peer_name)
     if (enc == NULL) {
         goto err_free_linfo;
     }
-    if (rt_enc_ifinfomsg(enc, &info) < 0) {
+    if (rt_enc_data(enc, &info, sizeof info) < 0) {
         goto err_free_enc;
     }
     if (rt_enc_attribute(enc, IFLA_IFNAME, name, strlen(name)) < 0) {

@@ -38,11 +38,11 @@ struct rt_encoder *rt_enc_create();
 struct rt_encoder *rt_enc_create_cap(size_t cap);
 
 /**
- * rt_enc_add_ifinfomsg encodes an ifinfomsg.
+ * rt_enc_data copies the content of a data buffer into the encoder.
  *
  * @return 0 on successful encoding, -1 on failure
  */
-int rt_enc_ifinfomsg(struct rt_encoder *e, const struct ifinfomsg *info);
+int rt_enc_data(struct rt_encoder *e, const void *buf, size_t len);
 
 /**
  * rt_enc_attribute encodes a struct rtattr.

@@ -38,22 +38,22 @@ struct rt_encoder *rt_enc_create_cap(size_t cap)
     return e;
 }
 
-int rt_enc_ifinfomsg(struct rt_encoder *e, const struct ifinfomsg *info)
+int rt_enc_data(struct rt_encoder *e, const void *buf, size_t len)
 {
     size_t alen;
 
-    if (e == NULL || info == NULL) {
+    if (e == NULL || buf == NULL) {
         errno = EINVAL;
         return -1;
     }
 
-    alen = NLMSG_ALIGN(sizeof *info);
+    alen = NLMSG_ALIGN(len);
     if (e->len + alen > e->cap) {
         errno = EOVERFLOW;
         return -1;
     }
 
-    memcpy(RT_ENC_FREE(e), info, sizeof *info);
+    memcpy(RT_ENC_FREE(e), buf, len);
     e->len += alen;
 
     return 0;
