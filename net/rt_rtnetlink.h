@@ -69,7 +69,7 @@ int rt_link_create(struct ifinfomsg *info, size_t info_len);
  *
  * @return  0 on success, -1 on failure
  */
-int rt_delete_link(int index);
+int rt_link_delete(int index);
 
 /**
  * rt_link_set_flags sets the flags on an interface.

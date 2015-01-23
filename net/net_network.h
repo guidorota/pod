@@ -1,6 +1,10 @@
 #ifndef _NET_NETWORK_H
 #define _NET_NETWORK_H
 
+#include <net/if.h>
+
+#define NET_NAMESIZE IF_NAMESIZE
+
 /**
  * net_create_veth creates a new veth pair.
  *

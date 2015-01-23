@@ -2,7 +2,6 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
-#include <net/if.h>
 #include <sys/socket.h>
 #include "net_network.h"
 #include "rt_rtnetlink.h"
@@ -90,7 +89,7 @@ int net_delete(char *ifname)
         return -1;
     }
 
-    return rt_delete_link(i);
+    return rt_link_delete(i);
 }
 
 int net_up(char *ifname)
@@ -134,7 +133,7 @@ static int net_set_flags(char *ifname, uint32_t set, uint32_t unset)
     flags |= set;
     flags &= ~unset;
 
-    if (rt_set_link_flags(i, flags) < 0) {
+    if (rt_link_set_flags(i, flags) < 0) {
         goto free_buffer;
     }
 

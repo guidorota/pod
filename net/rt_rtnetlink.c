@@ -38,7 +38,7 @@ struct rt_encoder *rt_enc_create_cap(size_t cap)
     return e;
 }
 
-int rt_enc_add_ifinfomsg(struct rt_encoder *e, const struct ifinfomsg *info)
+int rt_enc_ifinfomsg(struct rt_encoder *e, const struct ifinfomsg *info)
 {
     size_t alen;
 
@@ -59,7 +59,7 @@ int rt_enc_add_ifinfomsg(struct rt_encoder *e, const struct ifinfomsg *info)
     return 0;
 }
 
-int rt_enc_add_attribute(struct rt_encoder *e, unsigned int type,
+int rt_enc_attribute(struct rt_encoder *e, unsigned int type,
         const void *buf, size_t len)
 {
     struct rtattr *rta;

@@ -5,7 +5,29 @@
 
 void print_usage(char *cmd)
 {
-    printf("Usage: %s [up|down|delete|status] <if_name>\n", cmd);
+    printf("Usage: %s [up|down|create|delete|status] <if_name>\n", cmd);
+}
+
+int main_create_veth(char *basename)
+{
+    char *main;
+    char *peer;
+
+    main = calloc(1, IF_NAMESIZE);
+    if (main == NULL) {
+        return -1;
+    }
+    strncpy(main, basename, NET_NAMESIZE - 3);
+    strcat(main, "_0");
+
+    peer = calloc(1, IF_NAMESIZE);
+    if (peer == NULL) {
+        return -1;
+    }
+    strncpy(peer, basename, NET_NAMESIZE - 3);
+    strcat(peer, "_1");
+
+    return net_create_veth(main, peer);
 }
 
 int main(int argc, char **argv)
@@ -26,6 +48,8 @@ int main(int argc, char **argv)
         err = net_up(ifname);
     } else if (strcmp(action, "down") == 0) {
         err = net_down(ifname);
+    } else if (strcmp(action, "create") == 0) {
+        err = main_create_veth(ifname);
     } else if (strcmp(action, "delete") == 0) {
         err = net_delete(ifname);
     } else if (strcmp(action, "status") == 0) {
