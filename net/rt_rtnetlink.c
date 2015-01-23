@@ -1,3 +1,4 @@
+#include <sys/socket.h>
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
@@ -5,14 +6,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <net/if.h>
-#include <sys/socket.h>
 #include "rt_rtnetlink.h"
 #include "nl_netlink.h"
 
 /**
  * RT_ENC_FREE returns the first free byte in the encoder.
  */
-#define RT_ENC_FREE(e) (e->buf + e->len)
+#define RT_ENC_FREE(e) (void *) ((char *) e->buf + e->len)
 
 struct rt_encoder *rt_enc_create()
 {
