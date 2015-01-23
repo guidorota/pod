@@ -10,9 +10,9 @@ void print_usage(char *cmd)
 
 int main_create_veth(char *basename)
 {
+    int err = -1;
     char *main;
     char *peer;
-
     main = calloc(1, IF_NAMESIZE);
     if (main == NULL) {
         return -1;
@@ -22,12 +22,16 @@ int main_create_veth(char *basename)
 
     peer = calloc(1, IF_NAMESIZE);
     if (peer == NULL) {
+        free(main);
         return -1;
     }
     strncpy(peer, basename, NET_NAMESIZE - 3);
     strcat(peer, "_1");
+    err = net_create_veth("veth0_0", "veth0_1");
 
-    return net_create_veth(main, peer);
+    free(main);
+    free(peer);
+    return err;
 }
 
 int main(int argc, char **argv)

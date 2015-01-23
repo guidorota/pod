@@ -1,3 +1,5 @@
+CFLAGS := -ggdb $(CFLAGS)
+
 .SUFFIXES:
 .SUFFIXES: .o .c
 

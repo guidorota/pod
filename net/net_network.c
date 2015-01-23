@@ -73,7 +73,7 @@ int net_create_veth(const char *name, const char *peer_name)
     err = rt_link_create(enc->buf, enc->len);
 
 err_free_enc:
-    rt_enc_free(pinfo);
+    rt_enc_free(enc);
 err_free_linfo:
     rt_enc_free(linfo);
 err_free_pinfo:
