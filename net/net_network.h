@@ -1,7 +1,15 @@
 #ifndef _NET_NETWORK_H
 #define _NET_NETWORK_H
 
-int net_create_veth(const char *name1, const char *name2);
+/**
+ * net_create_veth creates a new veth pair.
+ *
+ * @name name of the first endpoint
+ * @peer_name name of the second endpoint
+ *
+ * @return 0 on successful creation, -1 on failure
+ */
+int net_create_veth(const char *name, const char *peer_name);
 
 /**
  * net_delete deletes a network interface.

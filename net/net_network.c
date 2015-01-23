@@ -3,12 +3,84 @@
 #include <string.h>
 #include <stdlib.h>
 #include <net/if.h>
+#include <sys/socket.h>
 #include "net_network.h"
 #include "rt_rtnetlink.h"
+
+#define NET_LINK_VETH "veth"
 
 static int net_set_flags(char *ifname, uint32_t set, uint32_t unset);
 static bool net_check_ifname(const char *ifname);
 static int net_ifindex(const char *ifname);
+
+int net_create_veth(const char *name, const char *peer_name)
+{
+    int err = -1;
+    struct ifinfomsg info;
+    struct rt_encoder *enc;
+    struct rt_encoder *linfo;
+    struct rt_encoder *pinfo;
+
+    if (name == NULL || peer_name == NULL ||
+            strlen(name) > IF_NAMESIZE || strlen(peer_name) > IF_NAMESIZE) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    // Used to configure both veth endpoints
+    memset(&info, 0, sizeof info);
+    info.ifi_family = AF_UNSPEC;
+    info.ifi_change = 0xFFFFFFFF;
+    info.ifi_flags |= IFF_UP;
+
+    pinfo = rt_enc_create();
+    if (pinfo == NULL) {
+        return -1;
+    }
+    if (rt_enc_ifinfomsg(pinfo, &info) < 0) {
+        goto err_free_pinfo;
+    }
+    if (rt_enc_attribute(pinfo, IFLA_IFNAME, peer_name,
+                strlen(peer_name)) < 0) {
+        goto err_free_pinfo;
+    }
+
+    linfo = rt_enc_create();
+    if (linfo == NULL) {
+        goto err_free_enc;
+    }
+    if (rt_enc_attribute(linfo, IFLA_INFO_KIND, NET_LINK_VETH,
+                strlen(NET_LINK_VETH)) < 0) {
+        goto err_free_linfo;
+    }
+    if (rt_enc_attribute(linfo, IFLA_INFO_DATA, pinfo->buf, pinfo->len) < 0) {
+        goto err_free_linfo;
+    }
+
+    enc = rt_enc_create();
+    if (enc == NULL) {
+        goto err_free_linfo;
+    }
+    if (rt_enc_ifinfomsg(enc, &info) < 0) {
+        goto err_free_enc;
+    }
+    if (rt_enc_attribute(enc, IFLA_IFNAME, name, strlen(name)) < 0) {
+        goto err_free_enc;
+    }
+    if (rt_enc_attribute(enc, IFLA_LINKINFO, linfo->buf, linfo->len) < 0) {
+        goto err_free_enc;
+    }
+
+    err = rt_link_create(enc->buf, enc->len);
+
+err_free_enc:
+    rt_enc_free(pinfo);
+err_free_linfo:
+    rt_enc_free(linfo);
+err_free_pinfo:
+    rt_enc_free(pinfo);
+    return err;
+}
 
 int net_delete(char *ifname)
 {

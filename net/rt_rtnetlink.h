@@ -11,11 +11,72 @@
 #define RT_DGRAM_SIZE sysconf(_SC_PAGESIZE)
 
 /**
+ * struct rt_encoder is the supporting data strucure used to encode data into
+ * appropriate rtnetlink messages.
+ */
+struct rt_encoder {
+    void *buf;
+    size_t cap;
+    size_t len;
+};
+
+/**
+ * rt_enc_create creates a new rtnetlink encoder whose maximum capacity is
+ * equal to the page size in use by the kernel.
+ *
+ * @return  NULL on failure
+ */
+struct rt_encoder *rt_enc_create();
+
+/**
+ * rt_enc_create_cap creates a new rtnetlink encoder with the desired capacity.
+ *
+ * @cap maximum capacity
+ *
+ * @return NULL on failure
+ */
+struct rt_encoder *rt_enc_create_cap(size_t cap);
+
+/**
+ * rt_enc_add_ifinfomsg encodes an ifinfomsg.
+ *
+ * @return 0 on successful encoding, -1 on failure
+ */
+int rt_enc_ifinfomsg(struct rt_encoder *e, const struct ifinfomsg *info);
+
+/**
+ * rt_enc_attribute encodes a struct rtattr.
+ *
+ * @return 0 on successful encoding, -1 on failure
+ */
+int rt_enc_attribute(struct rt_encoder *e, unsigned int type,
+        const void *buf, size_t len);
+
+/**
+ * rt_enc_free frees the memory occupied by the encoder passed as parameter.
+ */
+void rt_enc_free(struct rt_encoder *e);
+
+/**
  * rt_link_create creates a new link.
  *
  * @return  0 on success, -1 on failure
  */
 int rt_link_create(struct ifinfomsg *info, size_t info_len);
+
+/**
+ * rt_link_delete removes an interface from the system.
+ *
+ * @return  0 on success, -1 on failure
+ */
+int rt_delete_link(int index);
+
+/**
+ * rt_link_set_flags sets the flags on an interface.
+ *
+ * @return  0 on success, -1 on failure
+ */
+int rt_link_set_flags(int index, uint32_t flags);
 
 /**
  * rt_link_info collects information about the interface whose index is passed
@@ -30,19 +91,5 @@ int rt_link_create(struct ifinfomsg *info, size_t info_len);
  *          returned by the kernel.
  */
 ssize_t rt_link_info(int index, void *buf, size_t len);
-
-/**
- * rt_delete_link removes an interface from the system.
- *
- * @return  0 on success, -1 on failure
- */
-int rt_delete_link(int index);
-
-/**
- * rt_set_flags sets the flags on an interface.
- *
- * @return  0 on success, -1 on failure
- */
-int rt_set_link_flags(int index, uint32_t flags);
 
 #endif /* _RT_NETLINK_H */

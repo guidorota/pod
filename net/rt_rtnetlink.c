@@ -9,6 +9,82 @@
 #include "rt_rtnetlink.h"
 #include "nl_netlink.h"
 
+/**
+ * RT_ENC_FREE returns the first free byte in the encoder.
+ */
+#define RT_ENC_FREE(e) (e->buf + e->len)
+
+struct rt_encoder *rt_enc_create()
+{
+    return rt_enc_create_cap(RT_DGRAM_SIZE);
+}
+
+struct rt_encoder *rt_enc_create_cap(size_t cap)
+{
+    struct rt_encoder *e;
+
+    e = calloc(1, sizeof *e);
+    if (e == NULL) {
+        return NULL;
+    }
+
+    e->buf = calloc(cap, 1);
+    if (e->buf == NULL) {
+        free(e);
+        return NULL;
+    }
+    e->cap = cap;
+
+    return e;
+}
+
+int rt_enc_add_ifinfomsg(struct rt_encoder *e, const struct ifinfomsg *info)
+{
+    size_t alen;
+
+    if (e == NULL || info == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    alen = NLMSG_ALIGN(sizeof *info);
+    if (e->len + alen > e->cap) {
+        errno = EOVERFLOW;
+        return -1;
+    }
+
+    memcpy(RT_ENC_FREE(e), info, sizeof *info);
+    e->len += alen;
+
+    return 0;
+}
+
+int rt_enc_add_attribute(struct rt_encoder *e, unsigned int type,
+        const void *buf, size_t len)
+{
+    struct rtattr *rta;
+
+    if (e->len + RTA_SPACE(len) > e->cap) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    rta = RT_ENC_FREE(e);
+    rta->rta_type = type;
+    rta->rta_len = RTA_LENGTH(len);
+
+    memcpy(RTA_DATA(rta), buf, len);
+    e->len += RTA_SPACE(len);
+
+    return 0;
+}
+
+void rt_enc_free(struct rt_encoder *e)
+{
+    free(e->buf);
+    free(e);
+}
+
 // kernel netlink address
 const struct sockaddr_nl kernel = { AF_NETLINK, 0, 0, 0 };
 
@@ -26,7 +102,7 @@ int rt_link_create(struct ifinfomsg *info, size_t info_len)
             NLM_F_CREATE | NLM_F_EXCL | NLM_F_REQUEST | NLM_F_ACK);
 }
 
-int rt_delete_link(int index)
+int rt_link_delete(int index)
 {
     struct ifinfomsg req;
 
@@ -39,7 +115,7 @@ int rt_delete_link(int index)
             NLM_F_REQUEST | NLM_F_ACK);
 }
 
-int rt_set_link_flags(int index, uint32_t flags)
+int rt_link_set_flags(int index, uint32_t flags)
 {
     struct ifinfomsg req;
 
