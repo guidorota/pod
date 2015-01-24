@@ -89,14 +89,20 @@ void rt_enc_free(struct rt_encoder *e)
 const struct sockaddr_nl kernel = { AF_NETLINK, 0, 0, 0 };
 
 // helper functions
-static int rt_simple_request(const struct ifinfomsg *req_buf, size_t req_len,
-        uint16_t type, uint16_t flags);
+static int rt_simple_request(const void *req, size_t req_len, uint16_t type,
+        uint16_t flags);
 static ssize_t rt_sync(const void *req_buf, size_t req_len, uint16_t type,
         uint16_t flags, struct nlmsghdr *reply_buf, size_t reply_len);
 static bool rt_is_kernel(const struct sockaddr_storage *addr,
         socklen_t addrlen);
 
-int rt_link_create(struct ifinfomsg *info, size_t info_len)
+int rt_addr_add(const struct ifaddrmsg *ifa, size_t ifa_len)
+{
+    return rt_simple_request(ifa, ifa_len, RTM_NEWADDR,
+            NLM_F_CREATE | NLM_F_EXCL | NLM_F_REQUEST | NLM_F_ACK);
+}
+
+int rt_link_create(const struct ifinfomsg *info, size_t info_len)
 {
     return rt_simple_request(info, info_len, RTM_NEWLINK,
             NLM_F_CREATE | NLM_F_EXCL | NLM_F_REQUEST | NLM_F_ACK);
@@ -172,8 +178,8 @@ ssize_t rt_link_info(int index, void *buf, size_t len)
  * rt_simple_request sends an rtnetlink request message and parses the
  * acknowledgement reponse.
  */
-static int rt_simple_request(const struct ifinfomsg *req, size_t req_len, 
-        uint16_t type, uint16_t flags)
+static int rt_simple_request(const void *req, size_t req_len, uint16_t type,
+        uint16_t flags)
 {
     struct nlmsghdr *resp;
     ssize_t recvd;

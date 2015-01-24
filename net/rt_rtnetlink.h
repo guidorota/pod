@@ -58,11 +58,18 @@ int rt_enc_attribute(struct rt_encoder *e, unsigned int type,
 void rt_enc_free(struct rt_encoder *e);
 
 /**
+ * rt_addr_add adds an address to an interface.
+ *
+ * @return  -1 in case of error
+ */
+int rt_addr_add(const struct ifaddrmsg *ifa, size_t ifa_len);
+
+/**
  * rt_link_create creates a new link.
  *
  * @return  0 on success, -1 on failure
  */
-int rt_link_create(struct ifinfomsg *info, size_t info_len);
+int rt_link_create(const struct ifinfomsg *info, size_t info_len);
 
 /**
  * rt_link_delete removes an interface from the system.

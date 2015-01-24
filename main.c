@@ -5,7 +5,7 @@
 
 void print_usage(char *cmd)
 {
-    printf("Usage: %s [up|down|create|delete|status] <if_name>\n", cmd);
+    printf("Usage: %s [up|down|create|address|delete|status] <if_name>\n", cmd);
 }
 
 int main_create_veth(char *basename)
@@ -59,6 +59,8 @@ int main(int argc, char **argv)
         err = net_delete(ifname);
     } else if (strcmp(action, "status") == 0) {
         printf("%s up: %d\n", ifname,  net_is_up(ifname));
+    } else if (strcmp(action, "address") == 0) {
+        err = net_addr_add_ipv4(ifname, "134.100.100.100", 24);
     } else {
         print_usage(argv[0]);
         exit(EXIT_SUCCESS);

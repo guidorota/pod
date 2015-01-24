@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
+#include <arpa/inet.h>
 #include <sys/socket.h>
 #include <linux/veth.h>
 #include "net_network.h"
@@ -9,9 +10,86 @@
 
 #define NET_LINK_VETH "veth"
 
+static struct rt_encoder *net_ipv4_req(int index, const void *addr,
+        const void *bcast, unsigned char prefix);
 static int net_set_flags(char *ifname, uint32_t set, uint32_t unset);
 static bool net_check_ifname(const char *ifname);
 static int net_ifindex(const char *ifname);
+
+/**
+ * NET_IPV4_LEN corresponds to the size of an IPv4 address.
+ */
+#define NET_IPV4_LEN (sizeof (struct in_addr))
+
+/**
+ * NET_IPV4_BCAST computes the broadcast address. 
+ */
+#define NET_IPV4_BCAST(addr, pre) (addr.s_addr | (0xFFFFFFFF << prefix))
+
+int net_addr_add_ipv4(char *ifname, char *addr, unsigned char prefix)
+{
+    int index;
+    struct in_addr addr_buf;
+    struct in_addr bcast_buf;
+    struct rt_encoder *enc;
+    int err = -1;
+
+    index = net_ifindex(ifname);
+    if (index < 0) {
+        return -1;
+    }
+
+    if (inet_pton(AF_INET, addr, &addr_buf) < 0) {
+        return -1;
+    }
+
+    bcast_buf.s_addr = NET_IPV4_BCAST(addr_buf, prefix);
+
+    enc = net_ipv4_req(index, &addr_buf, &bcast_buf, prefix);
+    if (enc == NULL) {
+        return -1;
+    }
+
+    err = rt_addr_add(enc->buf, enc->len);
+    rt_enc_free(enc);
+    return err;
+}
+
+static struct rt_encoder *net_ipv4_req(int index, const void *addr,
+        const void *bcast, unsigned char prefix)
+{
+    struct rt_encoder *enc;
+    struct ifaddrmsg ifa;
+
+    enc = rt_enc_create();
+    if (enc == NULL) {
+        return NULL;
+    }
+
+    memset(&ifa, 0, sizeof ifa);
+    ifa.ifa_family = AF_INET;
+    ifa.ifa_index = index;
+    ifa.ifa_prefixlen = prefix;
+
+    if (rt_enc_data(enc, &ifa, sizeof ifa) < 0) {
+        goto fail;
+    }
+    if (rt_enc_attribute(enc, IFA_ADDRESS, addr, NET_IPV4_LEN) < 0) {
+        goto fail;
+    }
+    if (rt_enc_attribute(enc, IFA_LOCAL, addr, NET_IPV4_LEN) < 0) {
+        goto fail;
+    }
+    if (rt_enc_attribute(enc, IFA_BROADCAST, bcast, NET_IPV4_LEN) < 0) {
+        goto fail;
+    }
+
+    return enc;
+
+fail:
+    rt_enc_free(enc);
+    return NULL;
+}
 
 int net_create_veth(const char *name, const char *peer_name)
 {

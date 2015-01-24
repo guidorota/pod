@@ -6,6 +6,13 @@
 #define NET_NAMESIZE IF_NAMESIZE
 
 /**
+ * net_addr_add_ipv4 adds an IPv4 address to the specified interface.
+ *
+ * @return  0 on success, -1 on failure
+ */
+int net_addr_add_ipv4(char *ifname, char *addr, unsigned char prefix);
+
+/**
  * net_create_veth creates a new veth pair.
  *
  * @name name of the first endpoint
