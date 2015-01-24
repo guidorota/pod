@@ -6,7 +6,8 @@
 #define NET_NAMESIZE IF_NAMESIZE
 
 /**
- * net_addr_add_ipv4 adds an IPv4 address to the specified interface.
+ * net_addr_add_ipv4 adds an IPv4 address to the specified interface. This
+ * function also sets a broadcast address with value (address | ~subnet_mask).
  *
  * @return  0 on success, -1 on failure
  */
@@ -21,6 +22,13 @@ int net_addr_add_ipv4(char *ifname, char *addr, unsigned char prefix);
  * @return 0 on successful creation, -1 on failure
  */
 int net_create_veth(const char *name, const char *peer_name);
+
+/**
+ * net_create_bridge creates a new bridge.
+ *
+ * @return 0 on successful creation, -1 on failure
+ */
+int net_create_bridge(const char *name);
 
 /**
  * net_delete deletes a network interface.

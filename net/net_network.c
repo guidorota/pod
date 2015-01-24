@@ -9,6 +9,7 @@
 #include "rt_rtnetlink.h"
 
 #define NET_LINK_VETH "veth"
+#define NET_LINK_BRIDGE "bridge"
 
 static struct rt_encoder *net_ipv4_req(int index, const void *addr,
         const void *bcast, unsigned char prefix);
@@ -90,6 +91,56 @@ fail:
     rt_enc_free(enc);
     return NULL;
 }
+
+int net_create_bridge(const char *name)
+{
+    int err = -1;
+    struct ifinfomsg info;
+    struct rt_encoder *enc;
+    struct rt_encoder *linfo;
+
+    if (name == NULL || strlen(name) > IF_NAMESIZE) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    linfo = rt_enc_create();
+    if (linfo == NULL) {
+        return -1;
+    }
+    if (rt_enc_attribute(linfo, IFLA_INFO_KIND, NET_LINK_BRIDGE,
+                strlen(NET_LINK_BRIDGE)) < 0) {
+        goto err_free_linfo;
+    }
+
+    memset(&info, 0, sizeof info);
+    info.ifi_family = AF_UNSPEC;
+    info.ifi_change = 0xFFFFFFFF;
+    info.ifi_flags |= IFF_MULTICAST;
+
+    enc = rt_enc_create();
+    if (enc == NULL) {
+        goto err_free_linfo;
+    }
+    if (rt_enc_data(enc, &info, sizeof info) < 0) {
+        goto err_free_enc;
+    }
+    if (rt_enc_attribute(enc, IFLA_IFNAME, name, strlen(name)) < 0) {
+        goto err_free_enc;
+    }
+    if (rt_enc_attribute(enc, IFLA_LINKINFO, linfo->buf, linfo->len) < 0) {
+        goto err_free_enc;
+    }
+
+    err = rt_link_create(enc->buf, enc->len); 
+
+err_free_enc:
+    rt_enc_free(enc);
+err_free_linfo:
+    rt_enc_free(linfo);
+    return err;
+}
+
 
 int net_create_veth(const char *name, const char *peer_name)
 {
