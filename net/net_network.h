@@ -9,7 +9,7 @@
 
 struct net_info {
     struct ifinfomsg info;
-    struct rtattr *atts[IFLA_INFO_MAX];
+    struct rtattr *atts[IFLA_MAX];
 };
 
 /**

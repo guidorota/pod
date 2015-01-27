@@ -4,6 +4,21 @@
 #define NET_VETH0 "tveth0"
 #define NET_VETH1 "tveth1"
 
+START_TEST(test_info)
+{
+    struct net_info *info;
+    struct rtattr *rta;
+
+    info = net_info("lo");
+   
+    ck_assert_ptr_ne(NULL, info);
+    rta = info->atts[IFLA_IFNAME];
+    ck_assert_str_eq((char *) RTA_DATA(rta), "lo");
+
+    net_info_free(info);
+}
+END_TEST
+
 START_TEST(test_is_up)
 {
     int up;
@@ -60,6 +75,10 @@ Suite *net_test_suite()
     TCase *c;
 
     s = suite_create("net");
+
+    c = tcase_create("test_info");
+    tcase_add_test(c, test_info);
+    suite_add_tcase(s, c);
     
     c = tcase_create("test_is_up");
     tcase_add_test(c, test_is_up);

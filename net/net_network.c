@@ -106,12 +106,14 @@ void net_info_free(struct net_info *info)
         return;
     }
 
-    for (i = 0; i < IFLA_INFO_MAX; i++) {
+    for (i = 0; i < IFLA_MAX; i++) {
         if (info->atts[i] == NULL) {
             continue;
         }
         free(info->atts[i]);
     }
+
+    free(info);
 }
 
 int net_addr_add_ipv4(char *ifname, char *addr, unsigned char prefix)
