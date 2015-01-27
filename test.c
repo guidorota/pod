@@ -9,6 +9,7 @@ int main(void)
     SRunner *sr;
 
     sr = srunner_create(NULL);
+    srunner_set_fork_status(sr, CK_NOFORK);
     srunner_add_suite(sr, net_test_suite());
 
     srunner_run_all(sr, CK_VERBOSE);

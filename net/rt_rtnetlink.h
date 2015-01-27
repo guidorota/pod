@@ -3,12 +3,29 @@
 
 #include <stdint.h>
 #include <unistd.h>
+#include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 
 /**
- * Typical size of a rtnetlink datagram message.
+ * RT_DGRAM_SIZE is the typical size of a rtnetlink datagram message.
  */
 #define RT_DGRAM_SIZE sysconf(_SC_PAGESIZE)
+
+/**
+ * RT_IFINFO_ALEN is the aligned length of a struct ifinfomsg.
+ */
+#define RT_IFINFO_ALEN NLMSG_ALIGN(sizeof (struct ifinfomsg))
+
+/**
+ * RT_RTA_LEN computes the total length of the rtattr attributes available
+ * after a struct ifinfomsg.
+ */
+#define RT_RTA_LEN(len) (len - RT_IFINFO_ALEN)
+
+/**
+ * RT_RTA returns the first rtattr after a struct ifinfomsg.
+ */
+#define RT_RTA(buf) (struct rtattr *) ((char *) buf + RT_IFINFO_ALEN)
 
 /**
  * struct rt_encoder is the supporting data strucure used to encode data into
@@ -39,7 +56,7 @@ struct rt_encoder *rt_enc_create_cap(size_t cap);
 
 /**
  * rt_enc_data copies the content of a data buffer into the encoder.
- *
+*
  * @return 0 on successful encoding, -1 on failure
  */
 int rt_enc_data(struct rt_encoder *e, const void *buf, size_t len);

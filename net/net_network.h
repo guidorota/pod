@@ -3,7 +3,26 @@
 
 #include <net/if.h>
 
+#include "rt_rtnetlink.h"
+
 #define NET_NAMESIZE IF_NAMESIZE
+
+struct net_info {
+    struct ifinfomsg info;
+    struct rtattr *atts[IFLA_INFO_MAX];
+};
+
+/**
+ * net_info_free frees the memory occupied by a struct net_info
+ */
+void net_info_free(struct net_info *i);
+
+/**
+ * net_info retrieves information regarding a specific network interface.
+ *
+ * @return  NULL on failure
+ */
+struct net_info *net_info(char *ifname);
 
 /**
  * net_addr_add_ipv4 adds an IPv4 address to the specified interface. This

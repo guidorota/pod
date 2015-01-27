@@ -11,6 +11,9 @@
 #define NET_LINK_VETH "veth"
 #define NET_LINK_BRIDGE "bridge"
 
+static struct net_info *net_info_decode(void *buf, size_t len);
+static struct rtattr *net_rta_copy(struct rtattr *rta);
+
 static struct rt_encoder *net_ipv4_req(int index, const void *addr,
         const void *bcast, unsigned char prefix);
 static int net_set_flags(char *ifname, uint32_t set, uint32_t unset);
@@ -26,6 +29,90 @@ static int net_ifindex(const char *ifname);
  * NET_IPV4_BCAST computes the broadcast address. 
  */
 #define NET_IPV4_BCAST(addr, pre) (addr.s_addr | (0xFFFFFFFF << prefix))
+
+struct net_info *net_info(char *ifname)
+{
+    int i;
+    unsigned char buf[RT_DGRAM_SIZE];
+    ssize_t read;
+
+    i = net_ifindex(ifname);
+    if (i < 0) {
+        return NULL;
+    }
+
+    read = rt_link_info(i, &buf, RT_DGRAM_SIZE);
+    if (read < 0) {
+        return NULL;
+    }
+
+    return net_info_decode(buf, read);
+}
+
+static struct net_info *net_info_decode(void *buf, size_t len)
+{
+    struct net_info *info;
+    struct rtattr *rta;
+    struct rtattr *copy;
+    size_t rta_len;
+
+    info = calloc(1, sizeof *info);
+    if (info == NULL) {
+        return NULL;
+    }
+
+    if (len < sizeof info->info) {
+        return NULL;
+    }
+
+    memcpy(&info->info, buf, sizeof info->info);
+
+    rta = RT_RTA(buf);
+    rta_len = RT_RTA_LEN(len);
+    for (; RTA_OK(rta, rta_len); rta = RTA_NEXT(rta, rta_len)) {
+        copy = net_rta_copy(rta);
+        if (copy == NULL) {
+            goto err;
+        } 
+        info->atts[rta->rta_type] = copy;
+    }
+    
+    return info;
+
+err:
+    net_info_free(info);
+    return NULL;
+}
+
+static struct rtattr *net_rta_copy(struct rtattr *rta)
+{
+    struct rtattr *copy;
+
+    copy = calloc(1, rta->rta_len);
+    if (copy == NULL) {
+        return NULL;
+    }
+
+    memcpy(copy, rta, rta->rta_len);
+
+    return copy;
+}
+
+void net_info_free(struct net_info *info)
+{
+    int i;
+
+    if (info == NULL) {
+        return;
+    }
+
+    for (i = 0; i < IFLA_INFO_MAX; i++) {
+        if (info->atts[i] == NULL) {
+            continue;
+        }
+        free(info->atts[i]);
+    }
+}
 
 int net_addr_add_ipv4(char *ifname, char *addr, unsigned char prefix)
 {

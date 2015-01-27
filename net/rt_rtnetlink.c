@@ -181,36 +181,25 @@ ssize_t rt_link_info(int index, void *buf, size_t len)
 static int rt_simple_request(const void *req, size_t req_len, uint16_t type,
         uint16_t flags)
 {
-    struct nlmsghdr *resp;
+    unsigned char resp[RT_DGRAM_SIZE];
     ssize_t recvd;
-    int err = 0;
 
-    resp = calloc(RT_DGRAM_SIZE, 1);
-    if (resp == NULL) {
+    recvd = rt_sync(req, req_len, type, flags | NLM_F_ACK,
+                (struct nlmsghdr *) resp, RT_DGRAM_SIZE);
+    if (recvd < 0) {
         return -1;
     }
 
-    recvd = rt_sync(req, req_len, type, flags | NLM_F_ACK, resp,
-                RT_DGRAM_SIZE);
-    if (recvd < 0) {
-        err = -1;
-        goto clean_buf;
-    }
-
-    if (NL_ISERROR(resp)) {
+    if (NL_ISERROR((struct nlmsghdr *) resp)) {
         errno = -NL_ERROR_NO(resp);
-        err = -1;
-        goto clean_buf;
+        return -1;
     }
 
-    if (!NL_ISACK(resp)) {
-        err = -1;
-        goto clean_buf;
+    if (!NL_ISACK((struct nlmsghdr *) resp)) {
+        return -1;
     }
 
-clean_buf:
-    free(resp);
-    return err;
+    return 0;
 }
 
 /**

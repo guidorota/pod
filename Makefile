@@ -23,3 +23,4 @@ clean:
 	-rm -f net/*.o
 	-rm -f *.o
 	-rm -f cont
+	-rm -f test

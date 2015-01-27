@@ -17,14 +17,14 @@
  * NL_ISERROR returns true if the netlink message is of error type.
  */
 #define NL_ISERROR(hdr)                    \
-        (hdr->nlmsg_type == NLMSG_ERROR && \
+        ((hdr)->nlmsg_type == NLMSG_ERROR && \
         NL_ERROR_NO(hdr) != 0)
 
 /**
  * NL_ISACK returns true if the netlink message is an ACK.
  */
 #define NL_ISACK(hdr)                      \
-        (hdr->nlmsg_type == NLMSG_ERROR && \
+        ((hdr)->nlmsg_type == NLMSG_ERROR && \
         NL_ERROR_NO(hdr) == 0)
 
 /**
