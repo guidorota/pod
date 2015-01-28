@@ -3,6 +3,7 @@
 
 #define NET_VETH0 "tveth0"
 #define NET_VETH1 "tveth1"
+#define NET_NEWNAME "newname"
 
 START_TEST(test_info)
 {
@@ -31,21 +32,24 @@ END_TEST
 START_TEST(test_create_delete)
 {
     int err;
-    int up0, up1;
+    struct net_info *info;
+    struct rtattr *rta;
 
     err = net_create_veth(NET_VETH0, NET_VETH1);
     ck_assert_int_ge(err, 0);
 
-    up0 = net_is_up(NET_VETH0); 
-    up1 = net_is_up(NET_VETH1);
+    info = net_info(NET_VETH0);
+    ck_assert_ptr_ne(info, NULL);
+    rta = info->atts[IFLA_IFNAME];
+    ck_assert_str_eq((char *) RTA_DATA(rta), NET_VETH0);
+
+    info = net_info(NET_VETH1);
+    ck_assert_ptr_ne(info, NULL); 
+    rta = info->atts[IFLA_IFNAME];
+    ck_assert_str_eq((char *) RTA_DATA(rta), NET_VETH1);
 
     err = net_delete(NET_VETH0);
     ck_assert_int_ge(err, 0);
-
-    // postpone this check so that an error on net_is_up won't keep the test
-    // case from deleting the veth pair
-    ck_assert_int_ge(up0, 0);
-    ck_assert_int_ge(up1, 0);
 }
 END_TEST
 
@@ -64,6 +68,36 @@ START_TEST(test_up_down)
     ck_assert_int_ge(net_down(NET_VETH0), 0);
     ck_assert_int_eq(net_is_up(NET_VETH0), 0);
     ck_assert_int_eq(net_is_up(NET_VETH1), 0);
+
+    ck_assert_int_ge(net_delete(NET_VETH0), 0);
+}
+END_TEST
+
+START_TEST(test_rename)
+{
+    int err;
+    struct net_info *info;
+    struct rtattr *rta;
+
+    err = net_create_veth(NET_VETH0, NET_VETH1);
+    ck_assert_int_ge(err, 0);
+
+    info = net_info(NET_VETH0);
+    ck_assert_ptr_ne(info, NULL);
+
+    rta = info->atts[IFLA_IFNAME];
+    ck_assert_str_eq((char *) RTA_DATA(rta), NET_VETH0);
+    net_info_free(info);
+
+    err = net_rename(NET_VETH1, NET_NEWNAME);
+    ck_assert_int_ge(err, 0);
+
+    info = net_info(NET_NEWNAME);
+    ck_assert_ptr_ne(info, NULL);
+
+    rta = info->atts[IFLA_IFNAME];
+    ck_assert_str_eq((char *) RTA_DATA(rta), NET_NEWNAME);
+    net_info_free(info);
 
     ck_assert_int_ge(net_delete(NET_VETH0), 0);
 }
@@ -90,6 +124,10 @@ Suite *net_test_suite()
 
     c = tcase_create("test_up_down");
     tcase_add_test(c, test_up_down);
+    suite_add_tcase(s, c);
+
+    c = tcase_create("test_rename");
+    tcase_add_test(c, test_rename);
     suite_add_tcase(s, c);
 
     return s;

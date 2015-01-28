@@ -102,6 +102,37 @@ int rt_addr_add(const struct ifaddrmsg *ifa, size_t ifa_len)
             NLM_F_CREATE | NLM_F_EXCL | NLM_F_REQUEST | NLM_F_ACK);
 }
 
+int rt_link_rename(int index, char *name)
+{
+    ssize_t recvd;
+    unsigned char *buf[RT_DGRAM_SIZE];
+    struct rt_encoder *enc;
+    int err = -1;
+
+    recvd = rt_link_info(index, buf, RT_DGRAM_SIZE); 
+    if (recvd < 0) {
+        return -1;
+    }
+
+    enc = rt_enc_create();
+    if (enc == NULL) {
+        return -1;
+    }
+    if (rt_enc_data(enc, buf, sizeof (struct ifinfomsg)) < 0) {
+        goto free_enc;
+    }
+    if (rt_enc_attribute(enc, IFLA_IFNAME, name, strlen(name)) < 0) {
+        goto free_enc;
+    }
+
+    err = rt_simple_request(enc->buf, enc->len, RTM_NEWLINK,
+            NLM_F_ACK | NLM_F_REQUEST);
+
+free_enc:
+    rt_enc_free(enc);
+    return err;
+}
+
 int rt_link_create(const struct ifinfomsg *info, size_t info_len)
 {
     return rt_simple_request(info, info_len, RTM_NEWLINK,

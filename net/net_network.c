@@ -116,7 +116,24 @@ void net_info_free(struct net_info *info)
     free(info);
 }
 
-int net_addr_add_ipv4(char *ifname, char *addr, unsigned char prefix)
+int net_rename(char *old, char *new)
+{
+    int index;
+
+    if (new == NULL || strlen(new) >= IF_NAMESIZE) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    index = net_ifindex(old);
+    if (index < 0) {
+        return -1;
+    }
+
+    return rt_link_rename(index, new);
+}
+
+int net_add_ipv4(char *ifname, char *addr, unsigned char prefix)
 {
     int index;
     struct in_addr addr_buf;
@@ -188,7 +205,7 @@ int net_create_bridge(const char *name)
     struct rt_encoder *enc;
     struct rt_encoder *linfo;
 
-    if (name == NULL || strlen(name) > IF_NAMESIZE) {
+    if (name == NULL || strlen(name) >= IF_NAMESIZE) {
         errno = EINVAL;
         return -1;
     }
@@ -241,7 +258,7 @@ int net_create_veth(const char *name, const char *peer_name)
     struct rt_encoder *pinfo;
 
     if (name == NULL || peer_name == NULL ||
-            strlen(name) > IF_NAMESIZE || strlen(peer_name) > IF_NAMESIZE) {
+            strlen(name) >= IF_NAMESIZE || strlen(peer_name) >= IF_NAMESIZE) {
         errno = EINVAL;
         return -1;
     }

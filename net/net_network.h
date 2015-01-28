@@ -25,12 +25,19 @@ void net_info_free(struct net_info *i);
 struct net_info *net_info(char *ifname);
 
 /**
- * net_addr_add_ipv4 adds an IPv4 address to the specified interface. This
+ * net_rename renames a network interface
+ *
+ * @return  0 on success, -1 on failure
+ */
+int net_rename(char *old, char *new);
+
+/**
+ * net_add_ipv4 adds an IPv4 address to the specified interface. This
  * function also sets a broadcast address with value (address | ~subnet_mask).
  *
  * @return  0 on success, -1 on failure
  */
-int net_addr_add_ipv4(char *ifname, char *addr, unsigned char prefix);
+int net_add_ipv4(char *ifname, char *addr, unsigned char prefix);
 
 /**
  * net_create_veth creates a new veth pair.
