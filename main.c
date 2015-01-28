@@ -62,7 +62,7 @@ int main(int argc, char **argv)
     } else if (strcmp(action, "status") == 0) {
         printf("%s up: %d\n", ifname,  net_is_up(ifname));
     } else if (strcmp(action, "address") == 0) {
-        err = net_addr_add_ipv4(ifname, "135.100.100.100", 24);
+        err = net_add_ipv4(ifname, "135.100.100.100", 24);
     } else {
         print_usage(argv[0]);
         exit(EXIT_SUCCESS);

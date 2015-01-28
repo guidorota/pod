@@ -102,14 +102,15 @@ int rt_addr_add(const struct ifaddrmsg *ifa, size_t ifa_len)
             NLM_F_CREATE | NLM_F_EXCL | NLM_F_REQUEST | NLM_F_ACK);
 }
 
-int rt_link_rename(int index, char *name)
+int rt_link_set_attribute(int index, unsigned int attr, const void *buf,
+        size_t len)
 {
     ssize_t recvd;
-    unsigned char *buf[RT_DGRAM_SIZE];
+    unsigned char *info_buf[RT_DGRAM_SIZE];
     struct rt_encoder *enc;
     int err = -1;
 
-    recvd = rt_link_info(index, buf, RT_DGRAM_SIZE); 
+    recvd = rt_link_info(index, info_buf, RT_DGRAM_SIZE);
     if (recvd < 0) {
         return -1;
     }
@@ -118,10 +119,10 @@ int rt_link_rename(int index, char *name)
     if (enc == NULL) {
         return -1;
     }
-    if (rt_enc_data(enc, buf, sizeof (struct ifinfomsg)) < 0) {
+    if (rt_enc_data(enc, info_buf, sizeof (struct ifinfomsg)) < 0) {
         goto free_enc;
     }
-    if (rt_enc_attribute(enc, IFLA_IFNAME, name, strlen(name)) < 0) {
+    if (rt_enc_attribute(enc, attr, buf, len) < 0) {
         goto free_enc;
     }
 

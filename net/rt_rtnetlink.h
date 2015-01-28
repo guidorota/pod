@@ -89,11 +89,12 @@ int rt_addr_add(const struct ifaddrmsg *ifa, size_t ifa_len);
 int rt_link_create(const struct ifinfomsg *info, size_t info_len);
 
 /**
- * rt_link_rename renames an existing link.
+ * rt_link_set_attribute sets an interface attribute
  *
  * @return  0 on success, -1 on failure
  */
-int rt_link_rename(int index, char *name);
+int rt_link_set_attribute(int index, unsigned int attr, const void *buf,
+        size_t len);
 
 /**
  * rt_link_delete removes an interface from the system.

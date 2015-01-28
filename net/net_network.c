@@ -116,6 +116,23 @@ void net_info_free(struct net_info *info)
     free(info);
 }
 
+int net_set_master(char *iface, char *bridge)
+{
+    int if_idx, br_idx;
+
+    if_idx = net_ifindex(iface);
+    if (if_idx < 0) {
+        return -1;
+    }
+
+    br_idx = net_ifindex(bridge);
+    if (br_idx < 0) {
+        return -1;
+    }
+
+    return rt_link_set_attribute(if_idx, IFLA_MASTER, &br_idx, sizeof br_idx); 
+}
+
 int net_rename(char *old, char *new)
 {
     int index;
@@ -130,7 +147,7 @@ int net_rename(char *old, char *new)
         return -1;
     }
 
-    return rt_link_rename(index, new);
+    return rt_link_set_attribute(index, IFLA_IFNAME, new, strlen(new));
 }
 
 int net_add_ipv4(char *ifname, char *addr, unsigned char prefix)
@@ -425,6 +442,7 @@ int net_is_up(char *ifname)
 static int net_ifindex(const char *ifname)
 {
     if (!net_check_ifname(ifname)) {
+        errno = EINVAL;
         return -1;
     } 
 

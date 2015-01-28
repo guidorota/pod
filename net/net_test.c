@@ -35,6 +35,7 @@ START_TEST(test_create_delete)
     struct net_info *info;
     struct rtattr *rta;
 
+    net_delete(NET_VETH0);
     err = net_create_veth(NET_VETH0, NET_VETH1);
     ck_assert_int_ge(err, 0);
 
@@ -57,6 +58,7 @@ START_TEST(test_up_down)
 {
     int err;
 
+    net_delete(NET_VETH0);
     err = net_create_veth(NET_VETH0, NET_VETH1);
     ck_assert_int_ge(err, 0);
 
@@ -79,6 +81,7 @@ START_TEST(test_rename)
     struct net_info *info;
     struct rtattr *rta;
 
+    net_delete(NET_VETH0);
     err = net_create_veth(NET_VETH0, NET_VETH1);
     ck_assert_int_ge(err, 0);
 
