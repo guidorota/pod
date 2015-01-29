@@ -97,7 +97,6 @@ START_TEST(test_rename)
     struct net_info *info;
     struct rtattr *rta;
 
-    net_delete(NET_VETH0);
     err = net_create_veth(NET_VETH0, NET_VETH1);
     ck_assert_int_ge(err, 0);
 
@@ -128,8 +127,6 @@ START_TEST(test_bridge)
     struct net_info *info;
     struct rtattr *rta;
 
-    net_delete(NET_VETH0);
-    net_delete(NET_BRIDGE);
     err = net_create_bridge(NET_BRIDGE);
     ck_assert_int_ge(err, 0);
 
