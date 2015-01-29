@@ -51,7 +51,6 @@ START_TEST(test_create_delete)
     struct net_info *info;
     struct rtattr *rta;
 
-    net_delete(NET_VETH0);
     err = net_create_veth(NET_VETH0, NET_VETH1);
     ck_assert_int_ge(err, 0);
 
@@ -74,7 +73,6 @@ START_TEST(test_up_down)
 {
     int err;
 
-    net_delete(NET_VETH0);
     err = net_create_veth(NET_VETH0, NET_VETH1);
     ck_assert_int_ge(err, 0);
 
@@ -135,7 +133,40 @@ START_TEST(test_bridge)
     
     rta = info->atts[IFLA_IFNAME];    
     ck_assert_str_eq(RTA_DATA(rta), NET_BRIDGE);
+    net_info_free(info);
 
+    err = net_delete(NET_BRIDGE);
+    ck_assert_int_ge(err, 0);
+}
+END_TEST
+
+START_TEST(test_set_master)
+{
+    int err;
+    struct net_info *info;
+    struct rtattr *rta;
+    char name_buf[IF_NAMESIZE];
+    char *name;
+
+    err = net_create_bridge(NET_BRIDGE);
+    ck_assert_int_ge(err, 0);
+
+    err = net_create_veth(NET_VETH0, NET_VETH1);
+    ck_assert_int_ge(err, 0);
+
+    err = net_set_master(NET_VETH0, NET_BRIDGE);
+    ck_assert_int_ge(err, 0);
+
+    info = net_info(NET_VETH0);
+    ck_assert_ptr_ne(info, NULL);
+    rta = info->atts[IFLA_MASTER];
+    ck_assert_ptr_ne(rta, NULL);
+
+    name = net_ifname(*((int *) RTA_DATA(rta)), name_buf);
+    ck_assert_str_eq(name, NET_BRIDGE);
+
+    err = net_delete(NET_VETH0);
+    ck_assert_int_ge(err, 0);
     err = net_delete(NET_BRIDGE);
     ck_assert_int_ge(err, 0);
 }
@@ -174,6 +205,10 @@ Suite *net_test_suite()
     
     c = tcase_create("test_bridge");
     tcase_add_test(c, test_bridge);
+    suite_add_tcase(s, c);
+    
+    c = tcase_create("test_set_master");
+    tcase_add_test(c, test_set_master);
     suite_add_tcase(s, c);
 
     return s;

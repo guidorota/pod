@@ -263,7 +263,6 @@ err_free_linfo:
     return err;
 }
 
-
 int net_create_veth(const char *name, const char *peer_name)
 {
     int err = -1;
