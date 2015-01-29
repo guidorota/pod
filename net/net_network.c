@@ -115,6 +115,18 @@ void net_info_free(struct net_info *info)
     free(info);
 }
 
+int net_set_namespace(char *iface, pid_t pid)
+{
+    int index;
+
+    index = net_ifindex(iface);
+    if (index < 0) {
+        return -1;
+    }
+
+    return rt_link_set_attribute(index, IFLA_NET_NS_PID, &pid, sizeof pid);
+}
+
 int net_set_master(char *iface, char *master)
 {
     int if_idx, br_idx;

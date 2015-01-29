@@ -25,6 +25,14 @@ void net_info_free(struct net_info *i);
 struct net_info *net_info(char *ifname);
 
 /**
+ * net_set_namespace moves a network interface to the network namespace
+ * identified by the pid passed as parameter.
+ *
+ * @return  0 on success, -1 on failure
+ */
+int net_set_namespace(char *iface, pid_t pid);
+
+/**
  * net_set_master sets the interface master. This function can be used to
  * associate an interface to a bridge.
  *
