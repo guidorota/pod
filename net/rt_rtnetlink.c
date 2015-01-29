@@ -260,6 +260,7 @@ static ssize_t rt_sync(const void *req_buf, size_t req_len, uint16_t type,
     }
 
     memset(&addr, 0, sizeof addr);
+    addrlen = sizeof addr;
     recvd = nl_recv(c, reply_buf, reply_len,
                  (struct sockaddr *) &addr, &addrlen);
     if (recvd < 0) {
