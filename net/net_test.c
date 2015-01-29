@@ -5,6 +5,21 @@
 #define NET_VETH1 "tveth1"
 #define NET_NEWNAME "newname"
 
+START_TEST(test_name_index)
+{
+    char name_buf[IF_NAMESIZE];
+    char *name;
+    int index;
+
+    index = net_ifindex("lo");
+    ck_assert_int_ge(index, 0);
+
+    name = net_ifname(index, name_buf);
+    ck_assert_ptr_ne(name, NULL);
+    ck_assert_str_eq(name, "lo");
+}
+END_TEST
+
 START_TEST(test_info)
 {
     struct net_info *info;
@@ -112,6 +127,10 @@ Suite *net_test_suite()
     TCase *c;
 
     s = suite_create("net");
+
+    c = tcase_create("test_name_index");
+    tcase_add_test(c, test_name_index);
+    suite_add_tcase(s, c);
 
     c = tcase_create("test_info");
     tcase_add_test(c, test_info);

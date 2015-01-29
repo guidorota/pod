@@ -25,6 +25,14 @@ void net_info_free(struct net_info *i);
 struct net_info *net_info(char *ifname);
 
 /**
+ * net_set_master sets the interface master. This function can be used to
+ * associate an interface to a bridge.
+ *
+ * @return  0 on success, -1 on failure
+ */
+int net_set_master(char *iface, char *master);
+
+/**
  * net_rename renames a network interface
  *
  * @return  0 on success, -1 on failure
@@ -84,5 +92,21 @@ int net_up(char *ifname);
  * @return  0 on success, -1 on failure
  */
 int net_down(char *ifname);
+
+/**
+ * net_ifindex returns the index of the interface whose name is passed as
+ * parameter.
+ *
+ * @return  < 0 in case of error
+ */
+int net_ifindex(const char *ifname);
+
+/**
+ * net_ifname returns the name of the interface whose index is passed as
+ * parameter.
+ *
+ * @return  < 0 in case of error
+ */
+char *net_ifname(int index, char *name);
 
 #endif /* _NET_NETWORK_H */

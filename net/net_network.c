@@ -18,7 +18,6 @@ static struct rt_encoder *net_ipv4_req(int index, const void *addr,
         const void *bcast, unsigned char prefix);
 static int net_set_flags(char *ifname, uint32_t set, uint32_t unset);
 static bool net_check_ifname(const char *ifname);
-static int net_ifindex(const char *ifname);
 
 /**
  * NET_IPV4_LEN corresponds to the size of an IPv4 address.
@@ -116,7 +115,7 @@ void net_info_free(struct net_info *info)
     free(info);
 }
 
-int net_set_master(char *iface, char *bridge)
+int net_set_master(char *iface, char *master)
 {
     int if_idx, br_idx;
 
@@ -125,7 +124,7 @@ int net_set_master(char *iface, char *bridge)
         return -1;
     }
 
-    br_idx = net_ifindex(bridge);
+    br_idx = net_ifindex(master);
     if (br_idx < 0) {
         return -1;
     }
@@ -433,13 +432,7 @@ int net_is_up(char *ifname)
     return info->ifi_flags & IFF_UP;
 }
 
-/**
- * net_ifindex returns the index of the interface whose name is passed as
- * parameter.
- *
- * @return  < 0 in case of error
- */
-static int net_ifindex(const char *ifname)
+int net_ifindex(const char *ifname)
 {
     if (!net_check_ifname(ifname)) {
         errno = EINVAL;
@@ -447,6 +440,16 @@ static int net_ifindex(const char *ifname)
     } 
 
     return if_nametoindex(ifname);
+}
+
+char *net_ifname(int index, char *name)
+{
+    if (index < 0) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    return if_indextoname(index, name);
 }
 
 /**
