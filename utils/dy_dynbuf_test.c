@@ -1,9 +1,9 @@
-#include "dy_dynamicbuffer.h"
-#include "dy_dynamicbuffer_test.h"
+#include "dy_dynbuf.h"
+#include "dy_dynbuf_test.h"
 
 START_TEST(test_create)
 {
-    struct dy_dynamicbuffer *d;
+    struct dy_dynbuf *d;
 
     d = dy_create();
     ck_assert_ptr_ne(d, NULL);
@@ -17,7 +17,7 @@ END_TEST
 
 START_TEST(test_create_cap)
 {
-    struct dy_dynamicbuffer *d;
+    struct dy_dynbuf *d;
 
     d = dy_create_cap(10);
     ck_assert_ptr_ne(d, NULL);
@@ -32,7 +32,7 @@ END_TEST
 
 START_TEST(test_add)
 {
-    struct dy_dynamicbuffer *d;
+    struct dy_dynbuf *d;
     size_t cap_before;
     int value = 10;
 
@@ -52,7 +52,7 @@ END_TEST
 START_TEST(test_expand)
 {
     uint32_t value = 10;
-    struct dy_dynamicbuffer *d;
+    struct dy_dynbuf *d;
 
     d = dy_create_cap(7);
     ck_assert_ptr_ne(d, NULL);
@@ -69,7 +69,7 @@ START_TEST(test_expand)
 }
 END_TEST
 
-Suite *dy_dynamicbuffer_test_suite()
+Suite *dy_dynbuf_test_suite()
 {
     Suite *s;
     TCase *c;

@@ -3,19 +3,19 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "dy_dynamicbuffer.h"
+#include "dy_dynbuf.h"
 
 #define DY_FREE(d) ((char *) d->buf + d->len)
 
-static int dy_expand(struct dy_dynamicbuffer *d, size_t min);
+static int dy_expand(struct dy_dynbuf *d, size_t min);
 
-struct dy_dynamicbuffer *dy_create() {
+struct dy_dynbuf *dy_create() {
     return dy_create_cap(DY_DEFAULT_CAP);
 }
 
-struct dy_dynamicbuffer *dy_create_cap(size_t cap)
+struct dy_dynbuf *dy_create_cap(size_t cap)
 {
-    struct dy_dynamicbuffer *d;
+    struct dy_dynbuf *d;
 
     d = calloc(1, sizeof *d);
     if (d == NULL) {
@@ -32,7 +32,7 @@ struct dy_dynamicbuffer *dy_create_cap(size_t cap)
     return d;
 }
 
-int dy_add(struct dy_dynamicbuffer *d, const void *buf, size_t len)
+int dy_add(struct dy_dynbuf *d, const void *buf, size_t len)
 {
     if (d == NULL || buf == NULL) {
         errno = EINVAL;
@@ -54,7 +54,7 @@ int dy_add(struct dy_dynamicbuffer *d, const void *buf, size_t len)
     return 0;
 }
 
-static int dy_expand(struct dy_dynamicbuffer *d, size_t min)
+static int dy_expand(struct dy_dynbuf *d, size_t min)
 {
     size_t new_cap = d->cap;
 
@@ -78,7 +78,7 @@ static int dy_expand(struct dy_dynamicbuffer *d, size_t min)
     return 0;
 }
 
-void dy_free(struct dy_dynamicbuffer *d)
+void dy_free(struct dy_dynbuf *d)
 {
     if (d == NULL) {
         return;
