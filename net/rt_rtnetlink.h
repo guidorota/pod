@@ -77,9 +77,9 @@ void rt_enc_free(struct rt_encoder *e);
 /**
  * rt_get_all_addr retrieves all addresses associated with a network interface
  *
- * @return  -1 on error 
+ * @return  NULL on error
  */
-ssize_t rt_get_all_addr(int index, void *buf, size_t len);
+struct dy_dynbuf *rt_get_all_addr(int index, int family);
 
 /**
  * rt_addr_add adds an address to an interface.

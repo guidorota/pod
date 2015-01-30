@@ -1,23 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "net/net_network.h"
+#include <sys/socket.h>
+#include "net/rt_rtnetlink.h"
 
-int main(int argc, char **argv)
+int main()
 {
-    int err = 0;
-
-    if (argc < 3) {
-        printf("missing arguments\n");
-        exit(EXIT_FAILURE);
-    }
-
-    err = net_set_master(argv[1], argv[2]);
-
-    if (err < 0) {
-        perror("Error");
-        exit(EXIT_FAILURE);
-    }
-
-    exit(EXIT_SUCCESS);
+    rt_get_all_addr(2, AF_INET6);
+    return 0;
 }

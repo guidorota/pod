@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #include <sys/socket.h>
 #include <assert.h>
 #include <errno.h>
@@ -6,8 +8,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <net/if.h>
+
 #include "rt_rtnetlink.h"
 #include "nl_netlink.h"
+#include "../utils/dy_dynbuf.h"
 
 /**
  * RT_ENC_FREE returns the first free byte in the encoder.
@@ -89,8 +93,8 @@ void rt_enc_free(struct rt_encoder *e)
 const struct sockaddr_nl kernel = { AF_NETLINK, 0, 0, 0 };
 
 // helper functions
-static ssize_t rt_multi_request(const void *req, size_t req_len, uint16_t type,
-        uint16_t flags, void *reply_buf, size_t reply_len);
+static struct dy_dynbuf *rt_multi_request(const void *req, size_t req_len,
+        uint16_t type, uint16_t flags);
 static int rt_simple_request(const void *req, size_t req_len, uint16_t type,
         uint16_t flags);
 static ssize_t rt_sync(const void *req_buf, size_t req_len, uint16_t type,
@@ -98,22 +102,57 @@ static ssize_t rt_sync(const void *req_buf, size_t req_len, uint16_t type,
 static bool rt_is_kernel(const struct sockaddr_storage *addr,
         socklen_t addrlen);
 
-ssize_t rt_get_all_addr(int index, void *buf, size_t len)
+struct dy_dynbuf *rt_get_all_addr(int index, int family)
 {
     struct ifaddrmsg ifa;
-    size_t recv_len = 10 * RT_DGRAM_SIZE;
-    unsigned char recv_buf[recv_len];
-    ssize_t recvd;
+    struct dy_dynbuf *buf;
+    struct dy_dynbuf *resp;
+    struct nlmsghdr *nlmsg;
+    size_t nlmsg_len;
+    size_t rtalen;
+
+    struct ifaddrmsg *ifa_resp;
+    struct rtattr *rta;
+
+    printf("asdf: %d\n", index);
 
     memset(&ifa, 0, sizeof ifa);
-    ifa.ifa_index = index;
 
-    recvd = rt_multi_request(&ifa, sizeof ifa, RTM_GETADDR,
-            NLM_F_REQUEST | NLM_F_DUMP, recv_buf, recv_len);
-    if (recvd < 0) {
-        return -1;
+    buf = rt_multi_request(&ifa, sizeof ifa, RTM_GETADDR, NLM_F_ROOT | NLM_F_REQUEST);
+    if (buf == NULL) {
+        return NULL;
     }
 
+    resp = dy_create();
+    if (resp == NULL) {
+        goto err_free_buf;
+    }
+
+    nlmsg = buf->buf;
+    nlmsg_len = buf->len;
+    if (!NLMSG_OK(nlmsg, nlmsg_len)) {
+        goto err_free_resp;
+    }
+    for (; NLMSG_OK(nlmsg, nlmsg_len); nlmsg = NLMSG_NEXT(nlmsg, nlmsg_len)) {
+        ifa_resp = NLMSG_DATA(nlmsg); 
+        printf("index: %d\n", ifa_resp->ifa_index);
+        printf("family: %d\n", ifa_resp->ifa_family);
+        rtalen = nlmsg->nlmsg_len - NLMSG_ALIGN(sizeof *nlmsg) -
+            NLMSG_ALIGN(sizeof *ifa_resp);
+        rta = (struct rtattr *) ((char *) ifa_resp + NLMSG_ALIGN(sizeof *ifa_resp));
+        for (; RTA_OK(rta, rtalen); rta = RTA_NEXT(rta, rtalen)) {
+            printf("type: %d\n", rta->rta_type);
+        }
+    }
+    printf("---\n");
+
+    return resp;
+
+err_free_resp:
+    dy_free(resp);
+err_free_buf:
+    dy_free(buf);
+    return NULL;
 }
 
 int rt_addr_add(const struct ifaddrmsg *ifa, size_t ifa_len)
@@ -226,21 +265,26 @@ ssize_t rt_link_info(int index, void *buf, size_t len)
     return recvd;
 }
 
-static ssize_t rt_multi_request(const void *req, size_t req_len, uint16_t type,
-        uint16_t flags, void *reply_buf, size_t reply_len)
+static struct dy_dynbuf *rt_multi_request(const void *req, size_t req_len,
+        uint16_t type, uint16_t flags)
 {
     struct nl_connection *c;
     int seq;
     unsigned char recv_buf[RT_DGRAM_SIZE];
     struct nlmsghdr *recv_msg = (struct nlmsghdr *) recv_buf;
+    struct dy_dynbuf *buf;
     ssize_t recv_len;
-    ssize_t tot_len = 0;
     struct sockaddr_storage addr;
     socklen_t addr_len;
 
+    buf = dy_create();
+    if (buf == NULL) {
+        return NULL;
+    }
+
     c = nl_connect(NETLINK_ROUTE);
     if (c == NULL) {
-        return -1;
+        goto err_free_buf;
     }
 
     seq = nl_send(c, req, req_len, type, flags | NLM_F_REQUEST, &kernel);
@@ -248,6 +292,8 @@ static ssize_t rt_multi_request(const void *req, size_t req_len, uint16_t type,
         goto err_close_conn; 
     }
 
+    // The following loop copies an entire netlink response inside a dynamic
+    // buffer, even if it spans multiple netlink datagrams
     do {
         memset(&addr, 0, sizeof addr);
         addr_len = sizeof addr;
@@ -266,24 +312,26 @@ static ssize_t rt_multi_request(const void *req, size_t req_len, uint16_t type,
         if (!NLMSG_OK(recv_msg, recv_len)) {
             goto err_close_conn;
         }
-        
-        tot_len += NLMSG_ALIGN(recv_msg->nlmsg_len);
-        if ((size_t) tot_len > reply_len) {
+        if (NL_ISERROR(recv_msg)) {
+            errno = -NL_ERROR_NO(recv_msg);
             goto err_close_conn;
         }
 
-        memcpy(reply_buf, NLMSG_DATA(recv_msg), recv_msg->nlmsg_len);
-        reply_buf = (char *) reply_buf + NLMSG_ALIGN(recv_msg->nlmsg_len);
+        if (dy_add(buf, recv_msg, recv_len) < 0) {
+            goto err_close_conn;
+        }
 
     } while(recv_msg->nlmsg_flags | NLM_F_MULTI &&
-                recv_msg->nlmsg_type == NLMSG_DONE);
+                recv_msg->nlmsg_type != NLMSG_DONE);
 
     nl_close(c);
-    return tot_len;
+    return buf;
 
 err_close_conn:
     nl_close(c);
-    return -1;
+err_free_buf:
+    dy_free(buf);
+    return NULL;
 }
 
 /**
