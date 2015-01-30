@@ -6,16 +6,19 @@ CFLAGS := -ggdb -D_GNU_SOURCE -Werror -Wall -std=c11 -pedantic $(CFLAGS)
 .PHONY: all
 all: cont
 
-cont: main.c net.o
+cont: main.c net/net.o utils/dy_dynamicbuffer.o
 	$(CC) $(CFLAGS) -o $@ $^
 
-test: test.c net_test.o
+test: test.c net_test.o dy_dynamicbuffer_test.o
 	$(CC) $(CFLAGS) -o $@ $^ `pkg-config --cflags --libs check`
 
-net_test.o: net.o net/net_test.o
+net_test.o: net/net.o net/net_test.o
 	ld -r -o $@ $^
 
-net.o: net/rt_rtnetlink.o net/nl_netlink.o net/net_network.o utils/dy_dynamicbuffer.o
+dy_dynamicbuffer_test.o: utils/dy_dynamicbuffer.o utils/dy_dynamicbuffer_test.o
+	ld -r -o $@ $^
+
+net/net.o: net/rt_rtnetlink.o net/nl_netlink.o net/net_network.o
 	ld -r -o $@ $^
 
 .PHONY: clean

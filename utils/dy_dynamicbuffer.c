@@ -5,15 +5,15 @@
 
 #include "dy_dynamicbuffer.h"
 
-#define DY_FREE(d) (d->buf + d->len)
+#define DY_FREE(d) ((char *) d->buf + d->len)
 
 static int dy_expand(struct dy_dynamicbuffer *d, size_t min);
 
-struct dy_dynamicbuffer *da_create() {
-    return da_create_cap(DY_DEFAULT_CAP);
+struct dy_dynamicbuffer *dy_create() {
+    return dy_create_cap(DY_DEFAULT_CAP);
 }
 
-struct dy_dynamicbuffer *da_create_cap(size_t cap)
+struct dy_dynamicbuffer *dy_create_cap(size_t cap)
 {
     struct dy_dynamicbuffer *d;
 
@@ -23,7 +23,7 @@ struct dy_dynamicbuffer *da_create_cap(size_t cap)
     }
 
     d->buf = malloc(cap);
-    if (d->buf == NULL) {
+    if (d->buf == NULL) { 
         free(d);
         return NULL;
     }
@@ -50,6 +50,7 @@ int dy_add(struct dy_dynamicbuffer *d, const void *buf, size_t len)
     }
 
     memcpy(DY_FREE(d), buf, len);
+    d->len += len;
     return 0;
 }
 

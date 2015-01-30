@@ -1,5 +1,5 @@
-#ifndef _DA_DYNARRAY_H
-#define _DA_DYNARRAY_H
+#ifndef _DY_DYNAMICBUFFER_H
+#define _DY_DYNAMICBUFFER_H
 
 #include <unistd.h>
 
@@ -19,4 +19,4 @@ int dy_add(struct dy_dynamicbuffer *d, const void *buf, size_t len);
 
 void dy_free(struct dy_dynamicbuffer *d);
 
-#endif /* _DA_DYNARRAY_H */
+#endif /* _DY_DYNAMICBUFFER_H */
