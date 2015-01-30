@@ -75,6 +75,13 @@ int rt_enc_attribute(struct rt_encoder *e, unsigned int type,
 void rt_enc_free(struct rt_encoder *e);
 
 /**
+ * rt_get_all_addr retrieves all addresses associated with a network interface
+ *
+ * @return  -1 on error 
+ */
+ssize_t rt_get_all_addr(int index, void *buf, size_t len);
+
+/**
  * rt_addr_add adds an address to an interface.
  *
  * @return  -1 in case of error

@@ -89,12 +89,32 @@ void rt_enc_free(struct rt_encoder *e)
 const struct sockaddr_nl kernel = { AF_NETLINK, 0, 0, 0 };
 
 // helper functions
+static ssize_t rt_multi_request(const void *req, size_t req_len, uint16_t type,
+        uint16_t flags, void *reply_buf, size_t reply_len);
 static int rt_simple_request(const void *req, size_t req_len, uint16_t type,
         uint16_t flags);
 static ssize_t rt_sync(const void *req_buf, size_t req_len, uint16_t type,
         uint16_t flags, struct nlmsghdr *reply_buf, size_t reply_len);
 static bool rt_is_kernel(const struct sockaddr_storage *addr,
         socklen_t addrlen);
+
+ssize_t rt_get_all_addr(int index, void *buf, size_t len)
+{
+    struct ifaddrmsg ifa;
+    size_t recv_len = 10 * RT_DGRAM_SIZE;
+    unsigned char recv_buf[recv_len];
+    ssize_t recvd;
+
+    memset(&ifa, 0, sizeof ifa);
+    ifa.ifa_index = index;
+
+    recvd = rt_multi_request(&ifa, sizeof ifa, RTM_GETADDR,
+            NLM_F_REQUEST | NLM_F_DUMP, recv_buf, recv_len);
+    if (recvd < 0) {
+        return -1;
+    }
+
+}
 
 int rt_addr_add(const struct ifaddrmsg *ifa, size_t ifa_len)
 {
@@ -206,6 +226,66 @@ ssize_t rt_link_info(int index, void *buf, size_t len)
     return recvd;
 }
 
+static ssize_t rt_multi_request(const void *req, size_t req_len, uint16_t type,
+        uint16_t flags, void *reply_buf, size_t reply_len)
+{
+    struct nl_connection *c;
+    int seq;
+    unsigned char recv_buf[RT_DGRAM_SIZE];
+    struct nlmsghdr *recv_msg = (struct nlmsghdr *) recv_buf;
+    ssize_t recv_len;
+    ssize_t tot_len = 0;
+    struct sockaddr_storage addr;
+    socklen_t addr_len;
+
+    c = nl_connect(NETLINK_ROUTE);
+    if (c == NULL) {
+        return -1;
+    }
+
+    seq = nl_send(c, req, req_len, type, flags | NLM_F_REQUEST, &kernel);
+    if (seq == -1) {
+        goto err_close_conn; 
+    }
+
+    do {
+        memset(&addr, 0, sizeof addr);
+        addr_len = sizeof addr;
+        recv_len = nl_recv(c, recv_msg, RT_DGRAM_SIZE,
+                (struct sockaddr *) &addr, &addr_len);
+
+        if (recv_len < 0) {
+            goto err_close_conn;
+        }
+
+        if (!rt_is_kernel(&addr, addr_len) ||
+                recv_msg->nlmsg_seq != (uint32_t) seq) {
+            goto err_close_conn;
+        }
+
+        if (!NLMSG_OK(recv_msg, recv_len)) {
+            goto err_close_conn;
+        }
+        
+        tot_len += NLMSG_ALIGN(recv_msg->nlmsg_len);
+        if ((size_t) tot_len > reply_len) {
+            goto err_close_conn;
+        }
+
+        memcpy(reply_buf, NLMSG_DATA(recv_msg), recv_msg->nlmsg_len);
+        reply_buf = (char *) reply_buf + NLMSG_ALIGN(recv_msg->nlmsg_len);
+
+    } while(recv_msg->nlmsg_flags | NLM_F_MULTI &&
+                recv_msg->nlmsg_type == NLMSG_DONE);
+
+    nl_close(c);
+    return tot_len;
+
+err_close_conn:
+    nl_close(c);
+    return -1;
+}
+
 /**
  * rt_simple_request sends an rtnetlink request message and parses the
  * acknowledgement reponse.
@@ -267,12 +347,10 @@ static ssize_t rt_sync(const void *req_buf, size_t req_len, uint16_t type,
         goto close_conn;
     }
 
-    if (!rt_is_kernel(&addr, addrlen)) {
+    if (!rt_is_kernel(&addr, addrlen) ||
+            reply_buf->nlmsg_seq != (uint32_t) seq) {
         recvd = -1;
         goto close_conn;
-    }
-    if (reply_buf->nlmsg_seq != (uint32_t) seq) {
-        recvd = -1;
     }
 
 close_conn:

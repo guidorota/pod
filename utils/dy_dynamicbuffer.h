@@ -11,9 +11,9 @@ struct dy_dynamicbuffer {
     size_t cap;
 };
 
-struct dy_dynamicbuffer *da_create();
+struct dy_dynamicbuffer *dy_create();
 
-struct dy_dynamicbuffer *da_create_cap(size_t cap);
+struct dy_dynamicbuffer *dy_create_cap(size_t cap);
 
 int dy_add(struct dy_dynamicbuffer *d, const void *buf, size_t len);
 
