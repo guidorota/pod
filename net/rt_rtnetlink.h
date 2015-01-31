@@ -79,7 +79,7 @@ void rt_enc_free(struct rt_encoder *e);
  *
  * @return  NULL on error
  */
-struct dy_dynbuf *rt_get_all_addr(int index, int family);
+struct dy_dynbuf *rt_get_all_addr();
 
 /**
  * rt_addr_add adds an address to an interface.

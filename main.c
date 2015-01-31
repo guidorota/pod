@@ -6,6 +6,6 @@
 
 int main()
 {
-    rt_get_all_addr(2, AF_INET6);
+    rt_get_all_addr();
     return 0;
 }

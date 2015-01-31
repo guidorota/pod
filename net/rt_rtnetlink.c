@@ -102,7 +102,7 @@ static ssize_t rt_sync(const void *req_buf, size_t req_len, uint16_t type,
 static bool rt_is_kernel(const struct sockaddr_storage *addr,
         socklen_t addrlen);
 
-struct dy_dynbuf *rt_get_all_addr(int index, int family)
+struct dy_dynbuf *rt_get_all_addr()
 {
     struct ifaddrmsg ifa;
     struct dy_dynbuf *buf;
@@ -113,8 +113,6 @@ struct dy_dynbuf *rt_get_all_addr(int index, int family)
 
     struct ifaddrmsg *ifa_resp;
     struct rtattr *rta;
-
-    printf("asdf: %d\n", index);
 
     memset(&ifa, 0, sizeof ifa);
 
