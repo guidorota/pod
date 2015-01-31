@@ -11,6 +11,29 @@ type Connection struct {
 	addr *syscall.SockaddrNetlink
 }
 
+type Header struct {
+	Len   uint32
+	Type  uint16
+	Flags uint16
+	Seq   uint32
+	Pid   uint32
+}
+
+type Message struct {
+	Header Header
+	Data   []byte
+}
+
+func NewMessage(msg_type, flags uint16, data []byte) *Message {
+	m := new(Message)
+	m.Header.Type = msg_type
+	m.Header.Flags = flags
+	// TODO: continue here
+
+	return m
+}
+
+// Connect opens a netlink connection using the desired protocol
 func Connect(protocol int) (*Connection, error) {
 	fd, err := syscall.Socket(syscall.AF_NETLINK, syscall.SOCK_RAW, protocol)
 	if err != nil {
@@ -52,6 +75,9 @@ func setSockBuf(fd, bufsize int) error {
 	return nil
 }
 
+// getLocalAddress retrieves the address to which the socket descriptor has
+// been bound. Returns an error in case the address doesn't turn out to be a
+// valid netlink address.
 func getLocalAddress(fd int) (*syscall.SockaddrNetlink, error) {
 	addr, err := syscall.Getsockname(fd)
 	if err != nil {
@@ -66,6 +92,7 @@ func getLocalAddress(fd int) (*syscall.SockaddrNetlink, error) {
 	return nl_addr, nil
 }
 
+// Close closes the netlink connection
 func (c *Connection) Close() error {
 	return syscall.Close(c.fd)
 }
