@@ -95,6 +95,7 @@ const struct sockaddr_nl kernel = { AF_NETLINK, 0, 0, 0 };
 // helper functions
 static struct dy_dynbuf *rt_multi_request(const void *req, size_t req_len,
         uint16_t type, uint16_t flags);
+static struct dy_dynbuf *rt_recv_multi(struct nl_connection *c, int seq);
 static int rt_simple_request(const void *req, size_t req_len, uint16_t type,
         uint16_t flags);
 static ssize_t rt_sync(const void *req_buf, size_t req_len, uint16_t type,
@@ -267,22 +268,12 @@ static struct dy_dynbuf *rt_multi_request(const void *req, size_t req_len,
         uint16_t type, uint16_t flags)
 {
     struct nl_connection *c;
+    struct dy_dynbuf *buf = NULL;
     int seq;
-    unsigned char recv_buf[RT_DGRAM_SIZE];
-    struct nlmsghdr *recv_msg = (struct nlmsghdr *) recv_buf;
-    struct dy_dynbuf *buf;
-    ssize_t recv_len;
-    struct sockaddr_storage addr;
-    socklen_t addr_len;
-
-    buf = dy_create();
-    if (buf == NULL) {
-        return NULL;
-    }
 
     c = nl_connect(NETLINK_ROUTE);
     if (c == NULL) {
-        goto err_free_buf;
+        return NULL;
     }
 
     seq = nl_send(c, req, req_len, type, flags | NLM_F_REQUEST, &kernel);
@@ -290,8 +281,27 @@ static struct dy_dynbuf *rt_multi_request(const void *req, size_t req_len,
         goto err_close_conn; 
     }
 
-    // The following loop copies an entire netlink response inside a dynamic
-    // buffer, even if it spans multiple netlink datagrams
+    buf = rt_recv_multi(c, seq);
+
+err_close_conn:
+    nl_close(c);
+    return buf;
+}
+
+static struct dy_dynbuf *rt_recv_multi(struct nl_connection *c, int seq)
+{
+    struct sockaddr_storage addr;
+    socklen_t addr_len;
+    struct dy_dynbuf *buf;
+    unsigned char recv_buf[RT_DGRAM_SIZE];
+    struct nlmsghdr *recv_msg = (struct nlmsghdr *) recv_buf;
+    ssize_t recv_len;
+
+    buf = dy_create();
+    if (buf == NULL) {
+        return NULL;
+    }
+
     do {
         memset(&addr, 0, sizeof addr);
         addr_len = sizeof addr;
@@ -299,34 +309,33 @@ static struct dy_dynbuf *rt_multi_request(const void *req, size_t req_len,
                 (struct sockaddr *) &addr, &addr_len);
 
         if (recv_len < 0) {
-            goto err_close_conn;
+            goto err_free_buf;
         }
 
         if (!rt_is_kernel(&addr, addr_len) ||
                 recv_msg->nlmsg_seq != (uint32_t) seq) {
-            goto err_close_conn;
+            goto err_free_buf;
         }
 
         if (!NLMSG_OK(recv_msg, recv_len)) {
-            goto err_close_conn;
+            goto err_free_buf;
         }
         if (NL_ISERROR(recv_msg)) {
             errno = -NL_ERROR_NO(recv_msg);
-            goto err_close_conn;
+            goto err_free_buf;
+        }
+        if (recv_msg->nlmsg_type == NLMSG_DONE) {
+            break;
         }
 
         if (dy_add(buf, recv_msg, recv_len) < 0) {
-            goto err_close_conn;
+            goto err_free_buf;
         }
 
-    } while(recv_msg->nlmsg_flags | NLM_F_MULTI &&
-                recv_msg->nlmsg_type != NLMSG_DONE);
+    } while(recv_msg->nlmsg_flags | NLM_F_MULTI);
 
-    nl_close(c);
     return buf;
 
-err_close_conn:
-    nl_close(c);
 err_free_buf:
     dy_free(buf);
     return NULL;
