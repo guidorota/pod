@@ -8,7 +8,6 @@ import (
 
 type Connection struct {
 	fd   int
-	seq  uint32
 	addr *syscall.SockaddrNetlink
 }
 
@@ -16,57 +15,24 @@ type Message struct {
 	Type  uint16
 	Flags uint16
 	Seq   uint32
-	Data  [][]byte
-}
-
-func (c *Connection) NewMessage(nl_type, nl_flags int, data ...[]byte) *Message {
-	m := new(Message)
-
-	m.Type = uint16(nl_type)
-	m.Seq = c.seq
-	c.seq++
-	m.Flags = uint16(nl_flags)
-
-	m.Data = make([][]byte, len(data))
-	for i, d := range data {
-		m.Data[i] = append(m.Data[i], d...)
-	}
-
-	return m
-}
-
-func (m *Message) space() int {
-	l := 0
-
-	for _, d := range m.Data {
-		l += nlmsgSpace(len(d))
-	}
-
-	return l
-}
-
-func nlmsgSpace(len int) int {
-	return nlmsgAlign(syscall.NLMSG_HDRLEN + len)
+	Pid   uint32
+	Data  []byte
 }
 
 func nlmsgAlign(len int) int {
 	return (len + syscall.NLMSG_ALIGNTO - 1) & ^(syscall.NLMSG_ALIGNTO - 1)
 }
 
-func (m *Message) encode(pid uint32) []byte {
-	b := make([]byte, m.space())
+func (m *Message) encode() []byte {
+	len := syscall.NLMSG_HDRLEN + len(m.Data)
+	b := make([]byte, len)
 
-	i := 0
-	for _, d := range m.Data {
-		l := syscall.NLMSG_HDRLEN + len(d)
-		*(*uint32)(unsafe.Pointer(&b[i+0 : i+4][0])) = uint32(l)
-		*(*uint16)(unsafe.Pointer(&b[i+4 : i+6][0])) = m.Type
-		*(*uint16)(unsafe.Pointer(&b[i+6 : i+8][0])) = m.Flags
-		*(*uint32)(unsafe.Pointer(&b[i+8 : i+12][0])) = m.Seq
-		*(*uint32)(unsafe.Pointer(&b[i+12 : i+16][0])) = pid
-		copy(b[i+16:], d)
-		i += nlmsgSpace(len(d))
-	}
+	*(*uint32)(unsafe.Pointer(&b[0:4][0])) = uint32(len)
+	*(*uint16)(unsafe.Pointer(&b[4:6][0])) = m.Type
+	*(*uint16)(unsafe.Pointer(&b[6:8][0])) = m.Flags
+	*(*uint32)(unsafe.Pointer(&b[8:12][0])) = m.Seq
+	*(*uint32)(unsafe.Pointer(&b[12:16][0])) = m.Pid
+	copy(b[16:], m.Data)
 
 	return b
 }
@@ -93,7 +59,7 @@ func Connect(protocol int) (*Connection, error) {
 		return nil, err
 	}
 
-	c := &Connection{fd, 0, addr}
+	c := &Connection{fd, addr}
 	return c, nil
 }
 
@@ -131,8 +97,10 @@ func getLocalAddress(fd int) (*syscall.SockaddrNetlink, error) {
 }
 
 func (c *Connection) Sendto(dst *syscall.SockaddrNetlink, msg *Message) error {
-	b := msg.encode(uint32(syscall.Getpid()))
-	return syscall.Sendto(c.fd, b, 0, dst)
+	if msg.Pid == 0 {
+		msg.Pid = uint32(syscall.Getpid())
+	}
+	return syscall.Sendto(c.fd, msg.encode(), 0, dst)
 }
 
 func (c *Connection) Recvfrom() (*Message, *syscall.SockaddrNetlink, error) {
