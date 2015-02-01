@@ -31,7 +31,7 @@ func TestNlmsgAlign(t *testing.T) {
 	al := syscall.NLMSG_ALIGNTO
 	for i := 0; i < 100; i++ {
 		c := i + (al-(i%al))%al
-		if nlmsgAlign(i) != c {
+		if NlmsgAlign(i) != c {
 			t.Fatal("wrong alignment")
 		}
 	}

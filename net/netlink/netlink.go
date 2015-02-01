@@ -2,6 +2,7 @@ package netlink
 
 import (
 	"fmt"
+	"os"
 	"syscall"
 	"unsafe"
 )
@@ -19,7 +20,7 @@ type Message struct {
 	Data  []byte
 }
 
-func nlmsgAlign(len int) int {
+func NlmsgAlign(len int) int {
 	return (len + syscall.NLMSG_ALIGNTO - 1) & ^(syscall.NLMSG_ALIGNTO - 1)
 }
 
@@ -98,14 +99,31 @@ func getLocalAddress(fd int) (*syscall.SockaddrNetlink, error) {
 
 func (c *Connection) Sendto(dst *syscall.SockaddrNetlink, msg *Message) error {
 	if msg.Pid == 0 {
-		msg.Pid = uint32(syscall.Getpid())
+		msg.Pid = c.addr.Pid
 	}
 	return syscall.Sendto(c.fd, msg.encode(), 0, dst)
 }
 
-func (c *Connection) Recvfrom() (*Message, *syscall.SockaddrNetlink, error) {
-	// TODO: implement
-	return nil, nil, fmt.Errorf("not implemented")
+func (c *Connection) Recvfrom() ([]*Message, error) {
+	msgs := []*Message{}
+	for {
+		b := make([]byte, 0, os.Getpagesize())
+		n, _, err := syscall.Recvfrom(c.fd, b, 0)
+		if err != nil {
+			return nil, err
+		}
+		ms, err := parseMessage(b, n)
+		if err != nil {
+			return nil, err
+		}
+		msgs = append(msgs, ms...)
+	}
+	return msgs, fmt.Errorf("not implemented")
+}
+
+func parseMessage(b []byte, n int) ([]*Message, error) {
+	msgs := []*Message{}
+	return nil, fmt.Errorf("not implemented")
 }
 
 // Close closes the netlink connection
