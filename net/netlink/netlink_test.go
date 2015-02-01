@@ -22,10 +22,20 @@ func TestOpenConnection(t *testing.T) {
 func TestNlmsgAlign(t *testing.T) {
 	al := syscall.NLMSG_ALIGNTO
 	for i := 0; i < 100; i++ {
-		a := nlmsgAlign(i)
 		c := i + (al-(i%al))%al
-		if a != c {
-			t.Fatal("wrong alignment", i, a, c)
+		if nlmsgAlign(i) != c {
+			t.Fatal("wrong alignment")
+		}
+	}
+}
+
+func TestNlmsgSpace(t *testing.T) {
+	al := syscall.NLMSG_ALIGNTO
+	for i := 0; i < 100; i++ {
+		l := syscall.NLMSG_HDRLEN + i
+		c := l + (al-(l%al))%al
+		if nlmsgSpace(i) != c {
+			t.Fatal("wrong alignment")
 		}
 	}
 }
