@@ -24,11 +24,11 @@ type Message struct {
 	Data   []byte
 }
 
-func NewMessage(msg_type, flags uint16, data []byte) *Message {
+func NewMessage(nl_type, nl_flags uint16, data []byte) *Message {
 	m := new(Message)
-	m.Header.Type = msg_type
-	m.Header.Flags = flags
-	// TODO: continue here
+	m.Header.Type = nl_type
+	m.Header.Flags = nl_flags
+	m.Data = append(m.Data, data...)
 
 	return m
 }
@@ -90,6 +90,16 @@ func getLocalAddress(fd int) (*syscall.SockaddrNetlink, error) {
 	}
 
 	return nl_addr, nil
+}
+
+func (c *Connection) Send(msg Message, dst syscall.SockaddrNetlink) error {
+	// TODO: implement
+	return fmt.Errorf("not implemented")
+}
+
+func (c *Connection) Recv() (*Message, *syscall.SockaddrNetlink, error) {
+	// TODO: implement
+	return nil, nil, fmt.Errorf("not implemented")
 }
 
 // Close closes the netlink connection
