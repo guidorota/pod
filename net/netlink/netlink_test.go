@@ -3,13 +3,34 @@ package netlink
 import (
 	"syscall"
 	"testing"
-	"unsafe"
+	_ "unsafe"
 )
 
-var data = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+var data = []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+
+func TestOpenConnection(t *testing.T) {
+	c, err := Connect(syscall.NETLINK_ROUTE)
+	if err != nil {
+		t.Fatal("connection error:", err)
+	}
+	if c.seq != 0 {
+		t.Error("wrong initial value for connection sequence")
+	}
+	c.Close()
+}
+
+func newMessage(nl_type, nl_flags int, data ...[]byte) *Message {
+	c, err := Connect(syscall.NETLINK_ROUTE)
+	if err != nil {
+		return nil
+	}
+	m := c.NewMessage(nl_type, nl_flags, data...)
+	c.Close()
+	return m
+}
 
 func TestMessageCreation(t *testing.T) {
-	msg := NewMessage(syscall.NLMSG_DONE,
+	msg := newMessage(syscall.NLMSG_DONE,
 		syscall.NLM_F_REQUEST|syscall.NLM_F_ACK, data, data)
 
 	if msg == nil {
@@ -37,11 +58,10 @@ func TestMessageCreation(t *testing.T) {
 	}
 }
 
+/*
 func TestMessageEncode(t *testing.T) {
 	msg := createMessage(syscall.NLMSG_DONE,
 		syscall.NLM_F_REQUEST|syscall.NLM_F_ACK)
-	msg.Header.Seq = 10
-	msg.Header.Pid = 2586
 
 	b := msg.encode()
 	if uint32(len(b)) < msg.Header.Len {
@@ -71,3 +91,4 @@ func TestMessageEncode(t *testing.T) {
 		}
 	}
 }
+*/
