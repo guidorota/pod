@@ -6,35 +6,33 @@ import (
 	"unsafe"
 )
 
-func createMessage(nl_type, nl_flags int) *Message {
-	d := make([]byte, 10)
-	for i := range d {
-		d[i] = byte(i)
-	}
-
-	return NewMessage(nl_type, nl_flags, d)
-}
+var data = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 
 func TestMessageCreation(t *testing.T) {
-	msg := createMessage(syscall.NLMSG_DONE,
-		syscall.NLM_F_REQUEST|syscall.NLM_F_ACK)
+	msg := NewMessage(syscall.NLMSG_DONE,
+		syscall.NLM_F_REQUEST|syscall.NLM_F_ACK, data, data)
 
 	if msg == nil {
 		t.Fatal("message creation failed")
 	}
-	if msg.Header.Type != syscall.NLMSG_DONE {
+	if msg.Type != syscall.NLMSG_DONE {
 		t.Error("incorrect type")
 	}
-	if msg.Header.Flags != syscall.NLM_F_REQUEST|syscall.NLM_F_ACK {
+	if msg.Flags != syscall.NLM_F_REQUEST|syscall.NLM_F_ACK {
 		t.Error("incorrect flags")
 	}
 
-	if len(msg.Data) != 10 {
+	if len(msg.Data) != 2 {
 		t.Fatal("different data slice length")
 	}
-	for i := range msg.Data {
-		if msg.Data[i] != byte(i) {
-			t.Fatal("different data")
+	for _, d := range msg.Data {
+		if len(d) != 10 {
+			t.Fatal("different data length in slice 0")
+		}
+		for i := range d {
+			if d[i] != byte(i) {
+				t.Fatal("different data")
+			}
 		}
 	}
 }
