@@ -3,6 +3,7 @@ package netlink
 import (
 	"fmt"
 	"syscall"
+	"unsafe"
 )
 
 type Connection struct {
@@ -24,13 +25,30 @@ type Message struct {
 	Data   []byte
 }
 
-func NewMessage(nl_type, nl_flags uint16, data []byte) *Message {
+func NewMessage(nl_type, nl_flags int, data []byte) *Message {
 	m := new(Message)
-	m.Header.Type = nl_type
-	m.Header.Flags = nl_flags
+
+	m.Header.Type = uint16(nl_type)
+	m.Header.Flags = uint16(nl_flags)
+	m.Header.Len = uint32(syscall.NLMSG_HDRLEN + len(data))
+
 	m.Data = append(m.Data, data...)
 
 	return m
+}
+
+func (m *Message) encode() []byte {
+	b := make([]byte, m.Header.Len)
+
+	*(*uint32)(unsafe.Pointer(&b[0:4][0])) = m.Header.Len
+	*(*uint16)(unsafe.Pointer(&b[4:6][0])) = m.Header.Type
+	*(*uint16)(unsafe.Pointer(&b[6:8][0])) = m.Header.Flags
+	*(*uint32)(unsafe.Pointer(&b[8:12][0])) = m.Header.Seq
+	*(*uint32)(unsafe.Pointer(&b[12:16][0])) = m.Header.Pid
+
+	copy(b[16:], m.Data)
+
+	return b
 }
 
 // Connect opens a netlink connection using the desired protocol
