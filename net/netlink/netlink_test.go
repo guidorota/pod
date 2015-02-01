@@ -19,6 +19,18 @@ func TestOpenConnection(t *testing.T) {
 	c.Close()
 }
 
+func TestNlmsgAlign(t *testing.T) {
+	al := syscall.NLMSG_ALIGNTO
+	for i := 0; i < 100; i++ {
+		a := nlmsgAlign(i)
+		c := i + (al-(i%al))%al
+		if a != c {
+			t.Fatal("wrong alignment", i, a, c)
+		}
+	}
+}
+
+// newMessage is a utility function for creating test messages
 func newMessage(nl_type, nl_flags int, data ...[]byte) *Message {
 	c, err := Connect(syscall.NETLINK_ROUTE)
 	if err != nil {
@@ -41,6 +53,9 @@ func TestMessageCreation(t *testing.T) {
 	}
 	if msg.Flags != syscall.NLM_F_REQUEST|syscall.NLM_F_ACK {
 		t.Error("incorrect flags")
+	}
+	if msg.Seq != 0 {
+		t.Error("incorrect seq")
 	}
 
 	if len(msg.Data) != 2 {

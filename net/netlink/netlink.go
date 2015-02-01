@@ -50,7 +50,7 @@ func nlmsgSpace(len int) int {
 }
 
 func nlmsgAlign(len int) int {
-	return (len + syscall.NLMSG_ALIGNTO - 1) & ^syscall.NLMSG_ALIGNTO
+	return (len + syscall.NLMSG_ALIGNTO - 1) & ^(syscall.NLMSG_ALIGNTO - 1)
 }
 
 func (m *Message) encode(pid uint32) []byte {
