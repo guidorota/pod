@@ -123,50 +123,59 @@ func (c *Connection) Sendto(dst *syscall.SockaddrNetlink, msg *Message) error {
 func (c *Connection) Recvfrom() ([]*Message, error) {
 	msgs := []*Message{}
 	b := make([]byte, os.Getpagesize())
-done:
 	for {
 		recvd, _, err := syscall.Recvfrom(c.fd, b, 0)
 		if err != nil {
 			return nil, err
 		}
-		ms, err := parseMessages(b[:recvd])
+		ms, more, err := parseMessages(b[:recvd])
 		if err != nil {
 			return nil, err
 		}
 		msgs = append(msgs, ms...)
-		for _, m := range ms {
-			if ecode := m.GetErrorCode(); ecode != 0 {
-				return nil, fmt.Errorf("error:", ecode)
-			}
-			if m.Flags&syscall.NLM_F_MULTI == 0 ||
-				m.Type == syscall.NLMSG_DONE {
-				break done
-			}
+		if !more {
+			break
 		}
 	}
 	return msgs, nil
 }
 
-func parseMessages(b []byte) ([]*Message, error) {
+func parseMessages(b []byte) ([]*Message, bool, error) {
+	more := false
 	msgs := []*Message{}
 
 	for len(b) > syscall.NLMSG_HDRLEN {
-		msg := &Message{}
-		l := *(*uint32)(unsafe.Pointer(&b[0:4][0]))
-
-		msg.Type = *(*uint16)(unsafe.Pointer(&b[4:6][0]))
-		msg.Flags = *(*uint16)(unsafe.Pointer(&b[6:8][0]))
-		msg.Seq = *(*uint32)(unsafe.Pointer(&b[8:12][0]))
-		msg.Pid = *(*uint32)(unsafe.Pointer(&b[12:16][0]))
-
-		msg.Data = make([]byte, l-syscall.NLMSG_HDRLEN)
-		copy(msg.Data, b[syscall.NLMSG_HDRLEN:l])
-
+		msg, rest, err := decodeMessage(b)
+		if err != nil {
+			return nil, false, err
+		}
 		msgs = append(msgs, msg)
-		b = b[NlmsgAlign(int(l)):]
+		b = rest
+
+		more = msg.Flags&syscall.NLM_F_MULTI != 0 &&
+			msg.Type != syscall.NLMSG_DONE
 	}
 
-	return msgs, nil
+	return msgs, more, nil
+}
+
+func decodeMessage(b []byte) (*Message, []byte, error) {
+	msg := &Message{}
+	length := *(*uint32)(unsafe.Pointer(&b[0:4][0]))
+
+	msg.Type = *(*uint16)(unsafe.Pointer(&b[4:6][0]))
+	msg.Flags = *(*uint16)(unsafe.Pointer(&b[6:8][0]))
+	msg.Seq = *(*uint32)(unsafe.Pointer(&b[8:12][0]))
+	msg.Pid = *(*uint32)(unsafe.Pointer(&b[12:16][0]))
+
+	msg.Data = make([]byte, length-syscall.NLMSG_HDRLEN)
+	copy(msg.Data, b[syscall.NLMSG_HDRLEN:length])
+
+	if ecode := msg.GetErrorCode(); ecode != 0 {
+		return nil, nil, fmt.Errorf("netlink message error:", ecode)
+	}
+
+	return msg, b[NlmsgAlign(int(length)):], nil
 }
 
 // Close closes the netlink connection
