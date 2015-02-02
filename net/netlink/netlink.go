@@ -113,10 +113,12 @@ func parseMessages(b []byte) ([]*Message, bool, error) {
 	var msg *Message
 	for len(b) > syscall.NLMSG_HDRLEN {
 		msg, b = decodeMessage(b)
-		msgs = append(msgs, msg)
+		if msg.Type == syscall.NLMSG_DONE {
+			return msgs, false, nil
+		}
 
-		more = msg.Flags&syscall.NLM_F_MULTI != 0 &&
-			msg.Type != syscall.NLMSG_DONE
+		msgs = append(msgs, msg)
+		more = msg.Flags&syscall.NLM_F_MULTI != 0
 	}
 
 	return msgs, more, nil

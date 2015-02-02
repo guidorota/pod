@@ -2,43 +2,17 @@ package main
 
 import (
 	"fmt"
-	"syscall"
-	"unsafe"
 
-	"github.com/guidorota/pod/net/netlink"
+	"github.com/guidorota/pod/net/rtnetlink"
 )
 
 func main() {
-	fmt.Println("netlink test")
-	c, err := netlink.Connect(syscall.NETLINK_ROUTE)
+	infos, err := rtnetlink.GetAllInfo()
 	if err != nil {
-		return
-	}
-	defer c.Close()
-
-	msg := &netlink.Message{}
-	msg.Type = syscall.RTM_GETLINK
-	msg.Flags = syscall.NLM_F_DUMP | syscall.NLM_F_REQUEST
-	msg.Seq = 1
-	msg.Data = make([]byte, syscall.SizeofIfInfomsg)
-	*(*uint16)(unsafe.Pointer(&msg.Data[0:2][0])) = syscall.AF_UNSPEC
-
-	kernel := &syscall.SockaddrNetlink{}
-	kernel.Family = syscall.AF_NETLINK
-	kernel.Pid = 0
-
-	err = c.Send(kernel, msg)
-	if err != nil {
-		fmt.Println("send error:", err)
-		return
+		fmt.Println("error:", err)
 	}
 
-	msgs, err := c.Recv()
-	if err != nil {
-		fmt.Println("recv error:", err)
-		return
+	for _, info := range infos {
+		fmt.Println(info.Ifi.Index)
 	}
-	fmt.Println("messages received:", len(msgs))
-
-	fmt.Println("sucess")
 }

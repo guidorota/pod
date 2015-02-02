@@ -157,10 +157,8 @@ func TestCommunication(t *testing.T) {
 
 	msg := &Message{}
 	msg.Type = syscall.RTM_GETLINK
-	msg.Flags = syscall.NLM_F_DUMP | syscall.NLM_F_REQUEST
+	msg.Flags = syscall.NLM_F_REQUEST | syscall.NLM_F_ACK
 	msg.Seq = 1
-	msg.data = make([]byte, syscall.SizeofIfInfomsg)
-	*(*uint16)(unsafe.Pointer(&msg.data[0:2][0])) = syscall.AF_UNSPEC
 
 	kernel := &syscall.SockaddrNetlink{}
 	kernel.Family = syscall.AF_NETLINK
@@ -170,11 +168,17 @@ func TestCommunication(t *testing.T) {
 		t.Fatal("cannot send")
 	}
 
-	msgs, err := c.Recv()
+	reply, err := c.Recv()
 	if err != nil {
 		t.Fatal("cannot receive")
 	}
-	if len(msgs) == 0 {
-		t.Error("no message received")
+	if n_msg := len(reply); n_msg != 1 {
+		t.Errorf("one message expected, received %v instead", n_msg)
+	}
+	if reply[0].IsError() {
+		t.Fatal("error message received")
+	}
+	if !reply[0].IsAck() {
+		t.Fatal("ack reply expected but not received")
 	}
 }

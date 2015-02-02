@@ -27,6 +27,10 @@ func (m *Message) Append(e Encoder) {
 	m.data = append(m.data, e.Encode()...)
 }
 
+func (m *Message) Data() []byte {
+	return m.data
+}
+
 // errorCode returns the error code associated with the netlink message.
 // This function returns 0 if the message does not contain any error.
 func (m *Message) errorCode() int {
