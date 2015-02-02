@@ -7,9 +7,8 @@ import (
 	"unsafe"
 )
 
-type Connection struct {
-	fd   int
-	addr *syscall.SockaddrNetlink
+func NlmsgAlign(len int) int {
+	return (len + syscall.NLMSG_ALIGNTO - 1) & ^(syscall.NLMSG_ALIGNTO - 1)
 }
 
 type Message struct {
@@ -20,8 +19,20 @@ type Message struct {
 	Data  []byte
 }
 
-func NlmsgAlign(len int) int {
-	return (len + syscall.NLMSG_ALIGNTO - 1) & ^(syscall.NLMSG_ALIGNTO - 1)
+func (m *Message) GetErrorCode() int {
+	if m.Type != syscall.NLMSG_ERROR {
+		return 0
+	}
+	ecode := *(*int32)(unsafe.Pointer(&m.Data[0:4][0]))
+	return int(ecode)
+}
+
+func (m *Message) IsError() bool {
+	return m.GetErrorCode() != 0
+}
+
+func (m *Message) IsAck() bool {
+	return m.GetErrorCode() == 0
 }
 
 func (m *Message) encode() []byte {
@@ -36,6 +47,11 @@ func (m *Message) encode() []byte {
 	copy(b[16:], m.Data)
 
 	return b
+}
+
+type Connection struct {
+	fd   int
+	addr *syscall.SockaddrNetlink
 }
 
 // Connect opens a netlink connection using the desired protocol
@@ -106,24 +122,51 @@ func (c *Connection) Sendto(dst *syscall.SockaddrNetlink, msg *Message) error {
 
 func (c *Connection) Recvfrom() ([]*Message, error) {
 	msgs := []*Message{}
+	b := make([]byte, os.Getpagesize())
+done:
 	for {
-		b := make([]byte, 0, os.Getpagesize())
-		n, _, err := syscall.Recvfrom(c.fd, b, 0)
+		recvd, _, err := syscall.Recvfrom(c.fd, b, 0)
 		if err != nil {
 			return nil, err
 		}
-		ms, err := parseMessage(b, n)
+		ms, err := parseMessages(b[:recvd])
 		if err != nil {
 			return nil, err
 		}
 		msgs = append(msgs, ms...)
+		for _, m := range ms {
+			if ecode := m.GetErrorCode(); ecode != 0 {
+				return nil, fmt.Errorf("error:", ecode)
+			}
+			if m.Flags&syscall.NLM_F_MULTI == 0 ||
+				m.Type == syscall.NLMSG_DONE {
+				break done
+			}
+		}
 	}
-	return msgs, fmt.Errorf("not implemented")
+	return msgs, nil
 }
 
-func parseMessage(b []byte, n int) ([]*Message, error) {
+func parseMessages(b []byte) ([]*Message, error) {
 	msgs := []*Message{}
-	return nil, fmt.Errorf("not implemented")
+
+	for len(b) > syscall.NLMSG_HDRLEN {
+		msg := &Message{}
+		l := *(*uint32)(unsafe.Pointer(&b[0:4][0]))
+
+		msg.Type = *(*uint16)(unsafe.Pointer(&b[4:6][0]))
+		msg.Flags = *(*uint16)(unsafe.Pointer(&b[6:8][0]))
+		msg.Seq = *(*uint32)(unsafe.Pointer(&b[8:12][0]))
+		msg.Pid = *(*uint32)(unsafe.Pointer(&b[12:16][0]))
+
+		msg.Data = make([]byte, l-syscall.NLMSG_HDRLEN)
+		copy(msg.Data, b[syscall.NLMSG_HDRLEN:l])
+
+		msgs = append(msgs, msg)
+		b = b[NlmsgAlign(int(l)):]
+	}
+
+	return msgs, nil
 }
 
 // Close closes the netlink connection
