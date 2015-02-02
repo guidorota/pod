@@ -7,50 +7,6 @@ import (
 	"unsafe"
 )
 
-func NlmsgAlign(len int) int {
-	return (len + syscall.NLMSG_ALIGNTO - 1) & ^(syscall.NLMSG_ALIGNTO - 1)
-}
-
-type Message struct {
-	Type  uint16
-	Flags uint16
-	Seq   uint32
-	Pid   uint32
-	Data  []byte
-}
-
-// GetErrorCode returns the error code associated with the netlink message.
-// This function returns 0 if the message does not contain any error.
-func (m *Message) GetErrorCode() int {
-	if m.Type != syscall.NLMSG_ERROR {
-		return 0
-	}
-	ecode := *(*int32)(unsafe.Pointer(&m.Data[0:4][0]))
-	return int(ecode)
-}
-
-func (m *Message) IsError() bool {
-	return m.GetErrorCode() != 0
-}
-
-func (m *Message) IsAck() bool {
-	return m.Type == syscall.NLMSG_ERROR && m.GetErrorCode() == 0
-}
-
-func (m *Message) encode() []byte {
-	len := syscall.NLMSG_HDRLEN + len(m.Data)
-	b := make([]byte, len)
-
-	*(*uint32)(unsafe.Pointer(&b[0:4][0])) = uint32(len)
-	*(*uint16)(unsafe.Pointer(&b[4:6][0])) = m.Type
-	*(*uint16)(unsafe.Pointer(&b[6:8][0])) = m.Flags
-	*(*uint32)(unsafe.Pointer(&b[8:12][0])) = m.Seq
-	*(*uint32)(unsafe.Pointer(&b[12:16][0])) = m.Pid
-	copy(b[16:], m.Data)
-
-	return b
-}
-
 type Connection struct {
 	fd   int
 	addr *syscall.SockaddrNetlink
@@ -120,6 +76,7 @@ func (c *Connection) Send(dst *syscall.SockaddrNetlink, msg *Message) error {
 	if msg.Pid == 0 {
 		msg.Pid = c.addr.Pid
 	}
+
 	return syscall.Sendto(c.fd, msg.encode(), 0, dst)
 }
 
@@ -180,14 +137,15 @@ func decodeMessage(b []byte) (*Message, []byte, error) {
 	msg.Seq = *(*uint32)(unsafe.Pointer(&b[8:12][0]))
 	msg.Pid = *(*uint32)(unsafe.Pointer(&b[12:16][0]))
 
-	msg.Data = make([]byte, length-syscall.NLMSG_HDRLEN)
-	copy(msg.Data, b[syscall.NLMSG_HDRLEN:length])
+	msg.data = make([]byte, length-syscall.NLMSG_HDRLEN)
+	copy(msg.data, b[syscall.NLMSG_HDRLEN:length])
 
 	if ecode := msg.GetErrorCode(); ecode != 0 {
 		return nil, nil, fmt.Errorf("netlink message error:", ecode)
 	}
 
-	return msg, b[NlmsgAlign(int(length)):], nil
+	ri := Align(int(length), syscall.NLMSG_ALIGNTO)
+	return msg, b[ri:], nil
 }
 
 // Close closes the netlink connection

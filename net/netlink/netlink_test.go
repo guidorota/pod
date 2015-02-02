@@ -27,11 +27,11 @@ func TestOpenConnection(t *testing.T) {
 	c.Close()
 }
 
-func TestNlmsgAlign(t *testing.T) {
+func TestAlign(t *testing.T) {
 	al := syscall.NLMSG_ALIGNTO
 	for i := 0; i < 100; i++ {
 		c := i + (al-(i%al))%al
-		if NlmsgAlign(i) != c {
+		if Align(i, al) != c {
 			t.Fatal("wrong alignment")
 		}
 	}
@@ -39,7 +39,7 @@ func TestNlmsgAlign(t *testing.T) {
 
 func TestMessageEncode(t *testing.T) {
 	b := msg.encode()
-	l := syscall.NLMSG_HDRLEN + len(msg.Data)
+	l := syscall.NLMSG_HDRLEN + len(msg.data)
 	if len(b) < l {
 		t.Fatal("slice too short")
 	}
@@ -62,7 +62,7 @@ func TestMessageEncode(t *testing.T) {
 
 	data := b[16:]
 	for i := range data {
-		if data[i] != msg.Data[i] {
+		if data[i] != msg.data[i] {
 			t.Fatal("wrong data")
 		}
 	}
@@ -70,17 +70,17 @@ func TestMessageEncode(t *testing.T) {
 
 var err_msg = &Message{
 	Type: syscall.NLMSG_ERROR,
-	Data: []byte{0xF6, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
+	data: []byte{0xF6, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
 }
 
 var sane_msg = &Message{
 	Type: syscall.NLMSG_DONE,
-	Data: make([]byte, 4),
+	data: make([]byte, 4),
 }
 
 var ack_msg = &Message{
 	Type: syscall.NLMSG_ERROR,
-	Data: make([]byte, 4),
+	data: make([]byte, 4),
 }
 
 func TestGetErrorCode(t *testing.T) {
@@ -136,8 +136,8 @@ func TestCommunication(t *testing.T) {
 	msg.Type = syscall.RTM_GETLINK
 	msg.Flags = syscall.NLM_F_DUMP | syscall.NLM_F_REQUEST
 	msg.Seq = 1
-	msg.Data = make([]byte, syscall.SizeofIfInfomsg)
-	*(*uint16)(unsafe.Pointer(&msg.Data[0:2][0])) = syscall.AF_UNSPEC
+	msg.data = make([]byte, syscall.SizeofIfInfomsg)
+	*(*uint16)(unsafe.Pointer(&msg.data[0:2][0])) = syscall.AF_UNSPEC
 
 	kernel := &syscall.SockaddrNetlink{}
 	kernel.Family = syscall.AF_NETLINK
