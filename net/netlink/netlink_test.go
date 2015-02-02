@@ -67,3 +67,91 @@ func TestMessageEncode(t *testing.T) {
 		}
 	}
 }
+
+var err_msg = &Message{
+	Type: syscall.NLMSG_ERROR,
+	Data: []byte{0xF6, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
+}
+
+var sane_msg = &Message{
+	Type: syscall.NLMSG_DONE,
+	Data: make([]byte, 4),
+}
+
+var ack_msg = &Message{
+	Type: syscall.NLMSG_ERROR,
+	Data: make([]byte, 4),
+}
+
+func TestGetErrorCode(t *testing.T) {
+	if err_msg.GetErrorCode() != -10 {
+		t.Error("wrong error code for error message", err_msg.GetErrorCode())
+	}
+
+	if sane_msg.GetErrorCode() != 0 {
+		t.Error("normal message mistaken for an error")
+	}
+
+	if ack_msg.GetErrorCode() != 0 {
+		t.Error("ack message mistaken for an error")
+	}
+}
+
+func TestIsError(t *testing.T) {
+	if !err_msg.IsError() {
+		t.Error("error message not recognized")
+	}
+
+	if sane_msg.IsError() {
+		t.Error("normal message mistaken for an error")
+	}
+
+	if ack_msg.IsError() {
+		t.Error("ack message mistaken for an error")
+	}
+}
+
+func TestIsAck(t *testing.T) {
+	if err_msg.IsAck() {
+		t.Error("error message mistaken for acknowledgement")
+	}
+
+	if sane_msg.IsAck() {
+		t.Error("normal message mistaken for an acknowledgement")
+	}
+
+	if !ack_msg.IsAck() {
+		t.Error("ack message not recognized")
+	}
+}
+
+func TestCommunication(t *testing.T) {
+	c, err := Connect(syscall.NETLINK_ROUTE)
+	if err != nil {
+		t.Fatal("cannot connect")
+	}
+	defer c.Close()
+
+	msg := &Message{}
+	msg.Type = syscall.RTM_GETLINK
+	msg.Flags = syscall.NLM_F_DUMP | syscall.NLM_F_REQUEST
+	msg.Seq = 1
+	msg.Data = make([]byte, syscall.SizeofIfInfomsg)
+	*(*uint16)(unsafe.Pointer(&msg.Data[0:2][0])) = syscall.AF_UNSPEC
+
+	kernel := &syscall.SockaddrNetlink{}
+	kernel.Family = syscall.AF_NETLINK
+	kernel.Pid = 0
+
+	if err := c.Send(kernel, msg); err != nil {
+		t.Fatal("cannot send")
+	}
+
+	msgs, err := c.Recv()
+	if err != nil {
+		t.Fatal("cannot receive")
+	}
+	if len(msgs) == 0 {
+		t.Error("no message received")
+	}
+}

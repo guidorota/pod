@@ -19,6 +19,8 @@ type Message struct {
 	Data  []byte
 }
 
+// GetErrorCode returns the error code associated with the netlink message.
+// This function returns 0 if the message does not contain any error.
 func (m *Message) GetErrorCode() int {
 	if m.Type != syscall.NLMSG_ERROR {
 		return 0
@@ -32,7 +34,7 @@ func (m *Message) IsError() bool {
 }
 
 func (m *Message) IsAck() bool {
-	return m.GetErrorCode() == 0
+	return m.Type == syscall.NLMSG_ERROR && m.GetErrorCode() == 0
 }
 
 func (m *Message) encode() []byte {
@@ -113,6 +115,7 @@ func getLocalAddress(fd int) (*syscall.SockaddrNetlink, error) {
 	return nl_addr, nil
 }
 
+// Send sends a netlink message to the destination address passed as parameter.
 func (c *Connection) Send(dst *syscall.SockaddrNetlink, msg *Message) error {
 	if msg.Pid == 0 {
 		msg.Pid = c.addr.Pid
@@ -120,6 +123,8 @@ func (c *Connection) Send(dst *syscall.SockaddrNetlink, msg *Message) error {
 	return syscall.Sendto(c.fd, msg.encode(), 0, dst)
 }
 
+// Recv receives and decodes netlink messages.  This function correctly handles
+// and decodes multipart netlink messages.
 func (c *Connection) Recv() ([]*Message, error) {
 	msgs := []*Message{}
 	b := make([]byte, os.Getpagesize())
@@ -140,6 +145,10 @@ func (c *Connection) Recv() ([]*Message, error) {
 	return msgs, nil
 }
 
+// parseMessages parses a slice of bytes read from a netlink socket and
+// converts it into one or more netlink messages.  This function returns true
+// if the decoded netlink messages indicate that there are more messages
+// waiting to be read.
 func parseMessages(b []byte) ([]*Message, bool, error) {
 	more := false
 	msgs := []*Message{}
@@ -159,6 +168,9 @@ func parseMessages(b []byte) ([]*Message, bool, error) {
 	return msgs, more, nil
 }
 
+// decodeMessage decodes the contents of the byte slice into a new netlink
+// message.  The remainder of the byte slice is returned along with the decoded
+// message.
 func decodeMessage(b []byte) (*Message, []byte, error) {
 	msg := &Message{}
 	length := *(*uint32)(unsafe.Pointer(&b[0:4][0]))
