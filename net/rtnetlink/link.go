@@ -20,7 +20,7 @@ type LinkInfo struct {
 	Atts []Attribute
 }
 
-func (l *LinkInfo) encode() []byte {
+func (l *LinkInfo) Encode() []byte {
 	b := make([]byte, 16)
 	l.Ifi.Change = 0xFFFFFFFF
 
