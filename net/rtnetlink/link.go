@@ -33,15 +33,20 @@ func (l *LinkInfo) Encode() []byte {
 	return b
 }
 
-func GetAllInfo() ([]LinkInfo, error) {
+func GetAllInfo() ([]*LinkInfo, error) {
 	req := &netlink.Message{}
 	req.Type = syscall.RTM_GETLINK
 	req.Flags = syscall.NLM_F_REQUEST | syscall.NLM_F_DUMP
 
-	_, err := request(req)
+	msgs, err := request(req)
 	if err != nil {
 		return nil, err
 	}
 
-	return nil, nil
+	var infos []*LinkInfo
+	for _, m := range msgs {
+
+	}
+
+	return infos, nil
 }

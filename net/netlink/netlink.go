@@ -110,13 +110,10 @@ func parseMessages(b []byte) ([]*Message, bool, error) {
 	more := false
 	msgs := []*Message{}
 
+	var msg *Message
 	for len(b) > syscall.NLMSG_HDRLEN {
-		msg, rest, err := decodeMessage(b)
-		if err != nil {
-			return nil, false, err
-		}
+		msg, b = decodeMessage(b)
 		msgs = append(msgs, msg)
-		b = rest
 
 		more = msg.Flags&syscall.NLM_F_MULTI != 0 &&
 			msg.Type != syscall.NLMSG_DONE
@@ -128,7 +125,7 @@ func parseMessages(b []byte) ([]*Message, bool, error) {
 // decodeMessage decodes the contents of the byte slice into a new netlink
 // message.  The remainder of the byte slice is returned along with the decoded
 // message.
-func decodeMessage(b []byte) (*Message, []byte, error) {
+func decodeMessage(b []byte) (*Message, []byte) {
 	msg := &Message{}
 	length := *(*uint32)(unsafe.Pointer(&b[0:4][0]))
 
@@ -140,12 +137,8 @@ func decodeMessage(b []byte) (*Message, []byte, error) {
 	msg.data = make([]byte, length-syscall.NLMSG_HDRLEN)
 	copy(msg.data, b[syscall.NLMSG_HDRLEN:length])
 
-	if ecode := msg.GetErrorCode(); ecode != 0 {
-		return nil, nil, fmt.Errorf("netlink message error:", ecode)
-	}
-
 	ri := Align(int(length), syscall.NLMSG_ALIGNTO)
-	return msg, b[ri:], nil
+	return msg, b[ri:]
 }
 
 // Close closes the netlink connection
