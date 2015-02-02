@@ -27,13 +27,13 @@ func main() {
 	kernel.Family = syscall.AF_NETLINK
 	kernel.Pid = 0
 
-	err = c.Sendto(kernel, msg)
+	err = c.Send(kernel, msg)
 	if err != nil {
 		fmt.Println("send error:", err)
 		return
 	}
 
-	msgs, err := c.Recvfrom()
+	msgs, err := c.Recv()
 	if err != nil {
 		fmt.Println("recv error:", err)
 		return

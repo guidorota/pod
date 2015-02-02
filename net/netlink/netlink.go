@@ -113,14 +113,14 @@ func getLocalAddress(fd int) (*syscall.SockaddrNetlink, error) {
 	return nl_addr, nil
 }
 
-func (c *Connection) Sendto(dst *syscall.SockaddrNetlink, msg *Message) error {
+func (c *Connection) Send(dst *syscall.SockaddrNetlink, msg *Message) error {
 	if msg.Pid == 0 {
 		msg.Pid = c.addr.Pid
 	}
 	return syscall.Sendto(c.fd, msg.encode(), 0, dst)
 }
 
-func (c *Connection) Recvfrom() ([]*Message, error) {
+func (c *Connection) Recv() ([]*Message, error) {
 	msgs := []*Message{}
 	b := make([]byte, os.Getpagesize())
 	for {
