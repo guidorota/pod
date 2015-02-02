@@ -84,21 +84,21 @@ var ack_msg = &Message{
 }
 
 func TestGetErrorCode(t *testing.T) {
-	if ecode := err_msg.getErrorCode(); ecode != 10 {
+	if ecode := err_msg.errorCode(); ecode != 10 {
 		t.Error("wrong error code for error message", ecode)
 	}
 
-	if sane_msg.getErrorCode() != 0 {
+	if sane_msg.errorCode() != 0 {
 		t.Error("normal message mistaken for an error")
 	}
 
-	if ack_msg.getErrorCode() != 0 {
+	if ack_msg.errorCode() != 0 {
 		t.Error("ack message mistaken for an error")
 	}
 }
 
 func TestGetError(t *testing.T) {
-	err := err_msg.GetError()
+	err := err_msg.Error()
 	if err == nil {
 		t.Error("error message is not recognized as an error")
 	}
@@ -111,11 +111,11 @@ func TestGetError(t *testing.T) {
 		t.Error("wrong error type")
 	}
 
-	if sane_msg.GetError() != nil {
+	if sane_msg.Error() != nil {
 		t.Error("normal message mistaken for an error")
 	}
 
-	if ack_msg.GetError() != nil {
+	if ack_msg.Error() != nil {
 		t.Error("ack message mistaken for an error")
 	}
 }

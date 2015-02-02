@@ -27,9 +27,9 @@ func (m *Message) Append(e Encoder) {
 	m.data = append(m.data, e.Encode()...)
 }
 
-// getErrorCode returns the error code associated with the netlink message.
+// errorCode returns the error code associated with the netlink message.
 // This function returns 0 if the message does not contain any error.
-func (m *Message) getErrorCode() int {
+func (m *Message) errorCode() int {
 	if m.Type != syscall.NLMSG_ERROR {
 		return 0
 	}
@@ -37,8 +37,8 @@ func (m *Message) getErrorCode() int {
 	return -int(ecode)
 }
 
-func (m *Message) GetError() error {
-	ecode := m.getErrorCode()
+func (m *Message) Error() error {
+	ecode := m.errorCode()
 	if ecode == 0 {
 		return nil
 	}
@@ -46,11 +46,11 @@ func (m *Message) GetError() error {
 }
 
 func (m *Message) IsError() bool {
-	return m.getErrorCode() != 0
+	return m.errorCode() != 0
 }
 
 func (m *Message) IsAck() bool {
-	return m.Type == syscall.NLMSG_ERROR && m.getErrorCode() == 0
+	return m.Type == syscall.NLMSG_ERROR && m.errorCode() == 0
 }
 
 func (m *Message) encode() []byte {
