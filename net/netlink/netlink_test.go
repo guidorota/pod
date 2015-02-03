@@ -148,6 +148,47 @@ func TestIsAck(t *testing.T) {
 	}
 }
 
+func TestEncodeMessage(t *testing.T) {
+}
+
+func TestDecodeMessage(t *testing.T) {
+	l := syscall.NLMSG_HDRLEN + 8
+	al := Align(syscall.NLMSG_HDRLEN+8, NLMSG_ALIGNTO)
+	b := make([]byte, al)
+
+	*(*uint32)(unsafe.Pointer(&b[0:4][0])) = uint32(l)
+	*(*uint16)(unsafe.Pointer(&b[4:6][0])) = syscall.NLMSG_ERROR
+	*(*uint16)(unsafe.Pointer(&b[6:8][0])) = 87
+	*(*uint32)(unsafe.Pointer(&b[8:12][0])) = 12
+	*(*uint32)(unsafe.Pointer(&b[12:16][0])) = 48
+	copy(b[16:], err_msg.Data)
+
+	msg, br, err := DecodeMessage(b)
+	if err != nil {
+		t.Fatal("decode error", err)
+	}
+	if len(br) != 0 {
+		t.Error("message has not been decoded completely")
+	}
+
+	if msg.Type != syscall.NLMSG_ERROR {
+		t.Error("wrong type")
+	}
+	if msg.Flags != 87 {
+		t.Error("wrong flags")
+	}
+	if msg.Seq != 12 {
+		t.Error("wrong sequence")
+	}
+	if msg.Pid != 48 {
+		t.Error("wrong pid")
+	}
+
+	if msg.errorCode() != 10 {
+		t.Error("wrong error code")
+	}
+}
+
 func TestCommunication(t *testing.T) {
 	c, err := Connect(syscall.NETLINK_ROUTE)
 	if err != nil {
