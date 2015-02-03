@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"syscall"
-	"unsafe"
 )
 
 type Connection struct {
@@ -110,37 +109,21 @@ func parseMessages(b []byte) ([]*Message, bool, error) {
 	more := false
 	msgs := []*Message{}
 
-	var msg *Message
 	for len(b) > syscall.NLMSG_HDRLEN {
-		msg, b = decodeMessage(b)
+		msg, br, err := NewMessageFromBytes(b)
+		if err != nil {
+			return nil, false, err
+		}
 		if msg.Type == syscall.NLMSG_DONE {
 			return msgs, false, nil
 		}
 
 		msgs = append(msgs, msg)
 		more = msg.Flags&syscall.NLM_F_MULTI != 0
+		b = br
 	}
 
 	return msgs, more, nil
-}
-
-// decodeMessage decodes the contents of the byte slice into a new netlink
-// message.  The remainder of the byte slice is returned along with the decoded
-// message.
-func decodeMessage(b []byte) (*Message, []byte) {
-	msg := &Message{}
-	length := *(*uint32)(unsafe.Pointer(&b[0:4][0]))
-
-	msg.Type = *(*uint16)(unsafe.Pointer(&b[4:6][0]))
-	msg.Flags = *(*uint16)(unsafe.Pointer(&b[6:8][0]))
-	msg.Seq = *(*uint32)(unsafe.Pointer(&b[8:12][0]))
-	msg.Pid = *(*uint32)(unsafe.Pointer(&b[12:16][0]))
-
-	msg.data = make([]byte, length-syscall.NLMSG_HDRLEN)
-	copy(msg.data, b[syscall.NLMSG_HDRLEN:length])
-
-	ri := Align(int(length), syscall.NLMSG_ALIGNTO)
-	return msg, b[ri:]
 }
 
 // Close closes the netlink connection

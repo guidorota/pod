@@ -18,7 +18,7 @@ type IfInfomsg struct {
 
 type LinkInfo struct {
 	Ifi  IfInfomsg
-	Atts []Attribute
+	Atts map[int]Attribute
 }
 
 func (l *LinkInfo) Encode() []byte {
