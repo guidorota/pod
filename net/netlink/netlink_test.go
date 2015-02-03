@@ -149,11 +149,47 @@ func TestIsAck(t *testing.T) {
 }
 
 func TestEncodeMessage(t *testing.T) {
+	b := err_msg.encode()
+
+	l := Align(syscall.NLMSG_HDRLEN+8, NLMSG_ALIGNTO)
+	if len(b) != l {
+		t.Fatal("message encoded partially")
+	}
+
+	length := *(*uint32)(unsafe.Pointer(&b[0:4][0]))
+	if length != syscall.NLMSG_HDRLEN+8 {
+		t.Error("wrong length")
+	}
+
+	nl_type := *(*uint16)(unsafe.Pointer(&b[4:6][0]))
+	if nl_type != err_msg.Type {
+		t.Error("wrong type")
+	}
+
+	flags := *(*uint16)(unsafe.Pointer(&b[6:8][0]))
+	if flags != err_msg.Flags {
+		t.Error("wrong flags")
+	}
+
+	seq := *(*uint32)(unsafe.Pointer(&b[8:12][0]))
+	if seq != err_msg.Seq {
+		t.Error("wrong sequence")
+	}
+
+	pid := *(*uint32)(unsafe.Pointer(&b[12:16][0]))
+	if pid != err_msg.Pid {
+		t.Error("wrong pid")
+	}
+
+	ecode := *(*int32)(unsafe.Pointer(&b[16:20][0]))
+	if int(-ecode) != err_msg.errorCode() {
+		t.Error("wrong error code")
+	}
 }
 
 func TestDecodeMessage(t *testing.T) {
 	l := syscall.NLMSG_HDRLEN + 8
-	al := Align(syscall.NLMSG_HDRLEN+8, NLMSG_ALIGNTO)
+	al := Align(l, NLMSG_ALIGNTO)
 	b := make([]byte, al)
 
 	*(*uint32)(unsafe.Pointer(&b[0:4][0])) = uint32(l)
