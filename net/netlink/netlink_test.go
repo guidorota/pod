@@ -39,7 +39,7 @@ func TestAlign(t *testing.T) {
 
 func TestMessageEncode(t *testing.T) {
 	b := msg.encode()
-	l := syscall.NLMSG_HDRLEN + len(msg.data)
+	l := syscall.NLMSG_HDRLEN + len(msg.Data)
 	if len(b) < l {
 		t.Fatal("slice too short")
 	}
@@ -62,7 +62,7 @@ func TestMessageEncode(t *testing.T) {
 
 	data := b[16:]
 	for i := range data {
-		if data[i] != msg.data[i] {
+		if data[i] != msg.Data[i] {
 			t.Fatal("wrong data")
 		}
 	}
@@ -70,17 +70,17 @@ func TestMessageEncode(t *testing.T) {
 
 var err_msg = &Message{
 	Type: syscall.NLMSG_ERROR,
-	data: []byte{0xF6, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
+	Data: []byte{0xF6, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
 }
 
 var sane_msg = &Message{
 	Type: syscall.NLMSG_DONE,
-	data: make([]byte, 4),
+	Data: make([]byte, 4),
 }
 
 var ack_msg = &Message{
 	Type: syscall.NLMSG_ERROR,
-	data: make([]byte, 4),
+	Data: make([]byte, 4),
 }
 
 func TestGetErrorCode(t *testing.T) {

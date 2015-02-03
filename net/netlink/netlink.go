@@ -110,7 +110,7 @@ func parseMessages(b []byte) ([]*Message, bool, error) {
 	msgs := []*Message{}
 
 	for len(b) > syscall.NLMSG_HDRLEN {
-		msg, br, err := NewMessageFromBytes(b)
+		msg, br, err := DecodeMessage(b)
 		if err != nil {
 			return nil, false, err
 		}

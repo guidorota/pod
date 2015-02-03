@@ -37,11 +37,11 @@ func (l *LinkInfo) Encode() []byte {
 func decodeLinkInfo(m *netlink.Message) (*LinkInfo, error) {
 	info := LinkInfo{}
 
-	if len(m.Data()) < syscall.SizeofIfInfomsg {
+	if len(m.Data) < syscall.SizeofIfInfomsg {
 		return nil, fmt.Errorf("cannot decode IfInfomsg: not enough data")
 	}
 
-	ifi_b := m.Data()[0:syscall.SizeofIfInfomsg]
+	ifi_b := m.Data[0:syscall.SizeofIfInfomsg]
 	info.Ifi = *(*IfInfomsg)(unsafe.Pointer(&ifi_b[0]))
 
 	return &info, nil

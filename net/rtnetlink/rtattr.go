@@ -1,20 +1,50 @@
 package rtnetlink
 
 import (
+	"errors"
 	"syscall"
 	"unsafe"
 
 	"github.com/guidorota/pod/net/netlink"
 )
 
+const (
+	RTA_ALIGNTO  = syscall.RTA_ALIGNTO
+	SizeofRtAttr = syscall.SizeofRtAttr
+)
+
+var RTA_STRUCT_LEN = netlink.Align(SizeofRtAttr, RTA_ALIGNTO)
+
 type Attribute struct {
 	Type uint16
 	Data []byte
 }
 
+var ErrNoData = errors.New("cannot parse rtattr, not enough data")
+
+func DecodeAttribute(b []byte) (*Attribute, []byte, error) {
+	if len(b) < SizeofRtAttr {
+		return nil, nil, ErrNoData
+	}
+
+	length := *(*uint16)(unsafe.Pointer(&b[0:2][0]))
+	if uint16(len(b)) < length {
+		return nil, b, ErrNoData
+	}
+
+	att := &Attribute{}
+	att.Type = *(*uint16)(unsafe.Pointer(&b[2:4][0]))
+	data_len := int(length) - RTA_STRUCT_LEN
+	att.Data = make([]byte, data_len)
+	copy(att.Data, b[RTA_STRUCT_LEN:length])
+
+	r := netlink.Align(int(length), RTA_ALIGNTO)
+	return att, b[r:], nil
+}
+
 func (a Attribute) Encode() []byte {
-	l := syscall.SizeofRtAttr + len(a.Data)
-	b := make([]byte, netlink.Align(l, syscall.RTA_ALIGNTO))
+	l := netlink.Align(SizeofRtAttr, RTA_ALIGNTO) + len(a.Data)
+	b := make([]byte, netlink.Align(l, RTA_ALIGNTO))
 
 	*(*uint16)(unsafe.Pointer(&b[0:2][0])) = uint16(l)
 	*(*uint16)(unsafe.Pointer(&b[2:4][0])) = a.Type
@@ -110,10 +140,4 @@ func NewStringAttr(rt_type uint16, value string) Attribute {
 
 func (a *Attribute) AsString() string {
 	return string(a.Data)
-}
-
-// kernel is the netlink address for the Linux kernel
-var kernel = &syscall.SockaddrNetlink{
-	Family: syscall.AF_NETLINK,
-	Pid:    0,
 }
