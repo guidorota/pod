@@ -9,10 +9,10 @@ func TestUint8Attr(t *testing.T) {
 	value := uint8(12)
 	a := NewUint8Attr(5, value)
 
-	if len(a.Data) != 1 {
+	if len(a.data) != 1 {
 		t.Error("wrong data lenght")
 	}
-	v := *(*uint8)(unsafe.Pointer(&a.Data[0]))
+	v := *(*uint8)(unsafe.Pointer(&a.data[0]))
 	if v != value {
 		t.Error("wrong data content")
 	}
@@ -41,10 +41,10 @@ func TestInt8Attr(t *testing.T) {
 	value := int8(-12)
 	a := NewInt8Attr(5, value)
 
-	if len(a.Data) != 1 {
+	if len(a.data) != 1 {
 		t.Error("wrong data lenght")
 	}
-	v := *(*int8)(unsafe.Pointer(&a.Data[0]))
+	v := *(*int8)(unsafe.Pointer(&a.data[0]))
 	if v != value {
 		t.Error("wrong data content")
 	}
@@ -73,10 +73,10 @@ func TestUint16Attr(t *testing.T) {
 	value := uint16(847)
 	a := NewUint16Attr(5, value)
 
-	if len(a.Data) != 2 {
+	if len(a.data) != 2 {
 		t.Error("wrong data lenght")
 	}
-	v := *(*uint16)(unsafe.Pointer(&a.Data[0:2][0]))
+	v := *(*uint16)(unsafe.Pointer(&a.data[0:2][0]))
 	if v != value {
 		t.Error("wrong data content")
 	}
@@ -105,10 +105,10 @@ func TestInt16Attr(t *testing.T) {
 	value := int16(-847)
 	a := NewInt16Attr(5, value)
 
-	if len(a.Data) != 2 {
+	if len(a.data) != 2 {
 		t.Error("wrong data lenght")
 	}
-	v := *(*int16)(unsafe.Pointer(&a.Data[0:2][0]))
+	v := *(*int16)(unsafe.Pointer(&a.data[0:2][0]))
 	if v != value {
 		t.Error("wrong data content")
 	}
@@ -137,10 +137,10 @@ func TestUint32Attr(t *testing.T) {
 	value := uint32(67836)
 	a := NewUint32Attr(5, value)
 
-	if len(a.Data) != 4 {
+	if len(a.data) != 4 {
 		t.Error("wrong data lenght")
 	}
-	v := *(*uint32)(unsafe.Pointer(&a.Data[0:4][0]))
+	v := *(*uint32)(unsafe.Pointer(&a.data[0:4][0]))
 	if v != value {
 		t.Error("wrong data content")
 	}
@@ -169,10 +169,10 @@ func TestInt32Attr(t *testing.T) {
 	value := int32(67836)
 	a := NewInt32Attr(5, value)
 
-	if len(a.Data) != 4 {
+	if len(a.data) != 4 {
 		t.Error("wrong data lenght")
 	}
-	v := *(*int32)(unsafe.Pointer(&a.Data[0:4][0]))
+	v := *(*int32)(unsafe.Pointer(&a.data[0:4][0]))
 	if v != value {
 		t.Error("wrong data content")
 	}
@@ -201,10 +201,10 @@ func TestStringAttr(t *testing.T) {
 	value := "test_string"
 	a := NewStringAttr(5, value)
 
-	if len(a.Data) != 11 {
-		t.Error("wrong data lenght", len(a.Data))
+	if len(a.data) != 11 {
+		t.Error("wrong data lenght", len(a.data))
 	}
-	v := string(a.Data)
+	v := string(a.data)
 	if v != value {
 		t.Error("wrong data content")
 	}
