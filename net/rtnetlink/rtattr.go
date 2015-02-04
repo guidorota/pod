@@ -42,7 +42,7 @@ func DecodeAttribute(b []byte) (*Attribute, []byte, error) {
 	return att, b[r:], nil
 }
 
-func (a Attribute) Encode() []byte {
+func (a *Attribute) Encode() []byte {
 	l := netlink.Align(SizeofRtAttr, RTA_ALIGNTO) + len(a.Data)
 	b := make([]byte, netlink.Align(l, RTA_ALIGNTO))
 
@@ -53,8 +53,8 @@ func (a Attribute) Encode() []byte {
 	return b
 }
 
-func NewUint8Attr(rt_type uint16, value uint8) Attribute {
-	a := Attribute{
+func NewUint8Attr(rt_type uint16, value uint8) *Attribute {
+	a := &Attribute{
 		rt_type,
 		make([]byte, 1),
 	}
@@ -66,8 +66,8 @@ func (a *Attribute) AsUint8() uint8 {
 	return *(*uint8)(unsafe.Pointer(&a.Data[0]))
 }
 
-func NewInt8Attr(rt_type uint16, value int8) Attribute {
-	a := Attribute{
+func NewInt8Attr(rt_type uint16, value int8) *Attribute {
+	a := &Attribute{
 		rt_type,
 		make([]byte, 1),
 	}
@@ -79,8 +79,8 @@ func (a *Attribute) AsInt8() int8 {
 	return *(*int8)(unsafe.Pointer(&a.Data[0]))
 }
 
-func NewUint16Attr(rt_type, value uint16) Attribute {
-	a := Attribute{
+func NewUint16Attr(rt_type, value uint16) *Attribute {
+	a := &Attribute{
 		rt_type,
 		make([]byte, 2),
 	}
@@ -92,8 +92,8 @@ func (a *Attribute) AsUint16() uint16 {
 	return *(*uint16)(unsafe.Pointer(&a.Data[0:2][0]))
 }
 
-func NewInt16Attr(rt_type uint16, value int16) Attribute {
-	a := Attribute{
+func NewInt16Attr(rt_type uint16, value int16) *Attribute {
+	a := &Attribute{
 		rt_type,
 		make([]byte, 2),
 	}
@@ -105,8 +105,8 @@ func (a *Attribute) AsInt16() int16 {
 	return *(*int16)(unsafe.Pointer(&a.Data[0:2][0]))
 }
 
-func NewUint32Attr(rt_type uint16, value uint32) Attribute {
-	a := Attribute{
+func NewUint32Attr(rt_type uint16, value uint32) *Attribute {
+	a := &Attribute{
 		rt_type,
 		make([]byte, 4),
 	}
@@ -118,8 +118,8 @@ func (a *Attribute) AsUint32() uint32 {
 	return *(*uint32)(unsafe.Pointer(&a.Data[0:4][0]))
 }
 
-func NewInt32Attr(rt_type uint16, value int32) Attribute {
-	a := Attribute{
+func NewInt32Attr(rt_type uint16, value int32) *Attribute {
+	a := &Attribute{
 		rt_type,
 		make([]byte, 4),
 	}
@@ -131,8 +131,8 @@ func (a *Attribute) AsInt32() int32 {
 	return *(*int32)(unsafe.Pointer(&a.Data[0:4][0]))
 }
 
-func NewStringAttr(rt_type uint16, value string) Attribute {
-	return Attribute{
+func NewStringAttr(rt_type uint16, value string) *Attribute {
+	return &Attribute{
 		rt_type,
 		[]byte(value),
 	}
