@@ -13,7 +13,8 @@ const (
 	SizeofRtAttr = syscall.SizeofRtAttr
 )
 
-var RTA_STRUCT_LEN = netlink.Align(SizeofRtAttr, RTA_ALIGNTO)
+// RTA_STRUCT_ALEN represents the aligned length of a struct rtattr
+var RTA_STRUCT_ALEN = netlink.Align(SizeofRtAttr, RTA_ALIGNTO)
 
 type Attribute struct {
 	Type uint16
@@ -34,21 +35,21 @@ func DecodeAttribute(b []byte) (*Attribute, []byte, error) {
 
 	att := &Attribute{}
 	att.Type = *(*uint16)(unsafe.Pointer(&b[2:4][0]))
-	data_len := int(length) - RTA_STRUCT_LEN
+	data_len := int(length) - RTA_STRUCT_ALEN
 	att.Data = make([]byte, data_len)
-	copy(att.Data, b[RTA_STRUCT_LEN:length])
+	copy(att.Data, b[RTA_STRUCT_ALEN:length])
 
 	r := netlink.Align(int(length), RTA_ALIGNTO)
 	return att, b[r:], nil
 }
 
 func (a *Attribute) Encode() []byte {
-	l := netlink.Align(SizeofRtAttr, RTA_ALIGNTO) + len(a.Data)
+	l := RTA_STRUCT_ALEN + len(a.Data)
 	b := make([]byte, netlink.Align(l, RTA_ALIGNTO))
 
 	*(*uint16)(unsafe.Pointer(&b[0:2][0])) = uint16(l)
 	*(*uint16)(unsafe.Pointer(&b[2:4][0])) = a.Type
-	copy(b[4:], a.Data)
+	copy(b[RTA_STRUCT_ALEN:], a.Data)
 
 	return b
 }
