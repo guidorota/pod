@@ -110,3 +110,30 @@ func IsUp(name string) (bool, error) {
 
 	return (li.Ifi.Flags & syscall.IFF_UP) == 1, nil
 }
+
+func changeFlags(name string, set, unset uint32) error {
+	idx, err := ifIndex(name)
+	if err != nil {
+		return err
+	}
+
+	li, err := rt.GetLinkInfo(idx)
+	if err != nil {
+		return err
+	}
+
+	nli := rt.NewLinkInfo()
+	nli.Ifi.Family = li.Ifi.Family
+	nli.Ifi.Index = li.Ifi.Index
+	nli.Ifi.Flags = (li.Ifi.Flags | set) & ^unset
+
+	return rt.ModifyLink(li)
+}
+
+func Down(name string) error {
+	return changeFlags(name, 0, syscall.IFF_UP)
+}
+
+func Up(name string) error {
+	return changeFlags(name, syscall.IFF_UP, 0)
+}

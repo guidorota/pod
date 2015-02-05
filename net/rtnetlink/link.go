@@ -154,11 +154,24 @@ func DeleteLink(idx int32) error {
 	return requestAck(req)
 }
 
+// CreateLink instructs the kernel to create a new network interface.
+// This function does not allow the end user to change the properties of a
+// existing interface.
 func CreateLink(li *LinkInfo) error {
 	req := &netlink.Message{}
 	req.Type = syscall.RTM_NEWLINK
 	req.Flags = syscall.NLM_F_CREATE | syscall.NLM_F_EXCL |
 		syscall.NLM_F_REQUEST | syscall.NLM_F_ACK
+	req.Append(li)
+
+	return requestAck(req)
+}
+
+// ModifyLink changes the properties of an existing network interface.
+func ModifyLink(li *LinkInfo) error {
+	req := &netlink.Message{}
+	req.Type = syscall.RTM_NEWLINK
+	req.Flags = syscall.NLM_F_REQUEST | syscall.NLM_F_ACK
 	req.Append(li)
 
 	return requestAck(req)
