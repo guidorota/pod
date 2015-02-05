@@ -155,3 +155,28 @@ func DeleteLink(idx int32) error {
 
 	return nil
 }
+
+func NewLink(li *LinkInfo) error {
+	req := &netlink.Message{}
+	req.Type = syscall.RTM_NEWLINK
+	req.Flags = syscall.NLM_F_REQUEST | syscall.NLM_F_ACK
+	req.Append(li)
+
+	msgs, err := request(req)
+	if err != nil {
+		return err
+	}
+	if len(msgs) != 1 {
+		return fmt.Errorf("unexpected number of response messages")
+	}
+
+	m := msgs[0]
+	if m.IsError() {
+		return m.Error()
+	}
+	if !m.IsAck() {
+		return fmt.Errorf("no ack received")
+	}
+
+	return nil
+}
