@@ -30,14 +30,14 @@ type IfInfomsg struct {
 
 type LinkInfo struct {
 	Ifi  IfInfomsg
-	Atts map[int]*Attribute
+	Atts AttList
 }
 
 func NewLinkInfo() *LinkInfo {
 	li := &LinkInfo{}
 
 	li.Ifi.Change = 0xFFFFFFFF
-	li.Atts = make(map[int]*Attribute)
+	li.Atts = NewAttList()
 
 	return li
 }
@@ -48,9 +48,7 @@ func (l *LinkInfo) Encode() []byte {
 
 	*(*IfInfomsg)(unsafe.Pointer(&b[0])) = l.Ifi
 
-	for _, a := range l.Atts {
-		b = append(b, a.Encode()...)
-	}
+	b = append(b, l.Atts.Encode()...)
 
 	return b
 }
