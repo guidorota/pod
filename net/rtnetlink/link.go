@@ -8,6 +8,10 @@ import (
 	"github.com/guidorota/pod/net/netlink"
 )
 
+const (
+	SizeofIfInfomsg = syscall.SizeofIfInfomsg
+)
+
 type IfInfomsg struct {
 	Family uint16
 	Type   uint16
@@ -18,7 +22,7 @@ type IfInfomsg struct {
 
 type LinkInfo struct {
 	Ifi  IfInfomsg
-	Atts map[int]Attribute
+	Atts map[int]*Attribute
 }
 
 func (l *LinkInfo) Encode() []byte {
@@ -35,14 +39,27 @@ func (l *LinkInfo) Encode() []byte {
 }
 
 func decodeLinkInfo(m *netlink.Message) (*LinkInfo, error) {
-	info := LinkInfo{}
-
-	if len(m.Data()) < syscall.SizeofIfInfomsg {
-		return nil, fmt.Errorf("cannot decode IfInfomsg: not enough data")
+	info := LinkInfo{
+		Atts: make(map[int]*Attribute),
 	}
+	b := m.Data()
 
-	ifi_b := m.Data()[0:syscall.SizeofIfInfomsg]
-	info.Ifi = *(*IfInfomsg)(unsafe.Pointer(&ifi_b[0]))
+	if len(b) < syscall.SizeofIfInfomsg {
+		return nil, netlink.ErrNoData
+	}
+	info.Ifi = *(*IfInfomsg)(unsafe.Pointer(&b[0:SizeofIfInfomsg][0]))
+	b = b[SizeofIfInfomsg:]
+
+	for {
+		att, br, err := DecodeAttribute(b)
+		if err == netlink.ErrNoData {
+			break
+		} else if err != nil {
+			return nil, err
+		}
+		info.Atts[int(att.Type)] = att
+		b = br
+	}
 
 	return &info, nil
 }

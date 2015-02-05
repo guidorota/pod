@@ -1,7 +1,6 @@
 package rtnetlink
 
 import (
-	"errors"
 	"syscall"
 	"unsafe"
 
@@ -21,16 +20,15 @@ type Attribute struct {
 	data []byte
 }
 
-var ErrNoData = errors.New("cannot parse rtattr, not enough data")
-
 func DecodeAttribute(b []byte) (*Attribute, []byte, error) {
 	if len(b) < SizeofRtAttr {
-		return nil, nil, ErrNoData
+		return nil, nil, netlink.ErrNoData
 	}
 
 	length := *(*uint16)(unsafe.Pointer(&b[0:2][0]))
-	if uint16(len(b)) < length {
-		return nil, b, ErrNoData
+	if uint16(len(b)) < length ||
+		length < SizeofRtAttr {
+		return nil, b, netlink.ErrNoData
 	}
 
 	a := &Attribute{}
