@@ -42,10 +42,7 @@ func TestLinkInfoEncode(t *testing.T) {
 }
 
 func TestLinkInfoDecode(t *testing.T) {
-	msg := &netlink.Message{}
-	msg.Append(li)
-
-	new_li, err := DecodeLinkInfo(msg)
+	new_li, err := DecodeLinkInfo(li.Encode())
 	if err != nil {
 		t.Fatal("error decoding", err)
 	}
