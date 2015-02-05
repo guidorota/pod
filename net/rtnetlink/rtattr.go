@@ -20,6 +20,23 @@ type Attribute struct {
 	data []byte
 }
 
+func DecodeAttributeList(b []byte) (map[int]*Attribute, []byte, error) {
+	am := make(map[int]*Attribute)
+
+	for {
+		att, br, err := DecodeAttribute(b)
+		if err == netlink.ErrNoData {
+			break
+		} else if err != nil {
+			return nil, b, err
+		}
+		am[int(att.Type)] = att
+		b = br
+	}
+
+	return am, b, nil
+}
+
 func DecodeAttribute(b []byte) (*Attribute, []byte, error) {
 	if len(b) < SizeofRtAttr {
 		return nil, nil, netlink.ErrNoData

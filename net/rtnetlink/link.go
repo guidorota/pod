@@ -39,29 +39,21 @@ func (l *LinkInfo) Encode() []byte {
 }
 
 func decodeLinkInfo(m *netlink.Message) (*LinkInfo, error) {
-	info := LinkInfo{
-		Atts: make(map[int]*Attribute),
-	}
+	li := LinkInfo{}
 	b := m.Data()
 
 	if len(b) < syscall.SizeofIfInfomsg {
 		return nil, netlink.ErrNoData
 	}
-	info.Ifi = *(*IfInfomsg)(unsafe.Pointer(&b[0:SizeofIfInfomsg][0]))
-	b = b[SizeofIfInfomsg:]
+	li.Ifi = *(*IfInfomsg)(unsafe.Pointer(&b[0:SizeofIfInfomsg][0]))
 
-	for {
-		att, br, err := DecodeAttribute(b)
-		if err == netlink.ErrNoData {
-			break
-		} else if err != nil {
-			return nil, err
-		}
-		info.Atts[int(att.Type)] = att
-		b = br
+	atts, _, err := DecodeAttributeList(b[SizeofIfInfomsg:])
+	if err != nil {
+		return nil, err
 	}
+	li.Atts = atts
 
-	return &info, nil
+	return &li, nil
 }
 
 func GetAllInfo() ([]*LinkInfo, error) {
