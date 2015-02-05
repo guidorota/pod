@@ -16,21 +16,23 @@ const (
 // RTA_STRUCT_ALEN represents the aligned length of a struct rtattr
 var RTA_STRUCT_ALEN = netlink.Align(SizeofRtAttr, RTA_ALIGNTO)
 
-type AttList map[int]*Attribute
+// AttributeList represents a list of rtnetlink attributes.
+type AttributeList map[int]*Attribute
 
-func NewAttList() AttList {
-	return AttList(make(map[int]*Attribute))
+func NewAttributeList() AttributeList {
+	am := make(map[int]*Attribute)
+	return AttributeList(am)
 }
 
-func (al AttList) Add(att *Attribute) {
+func (al AttributeList) Add(att *Attribute) {
 	al[int(att.Type)] = att
 }
 
-func (al AttList) Get(rt_type int) *Attribute {
+func (al AttributeList) Get(rt_type int) *Attribute {
 	return al[rt_type]
 }
 
-func (al AttList) Encode() []byte {
+func (al AttributeList) Encode() []byte {
 	var b []byte
 
 	for _, a := range al {
@@ -40,8 +42,8 @@ func (al AttList) Encode() []byte {
 	return b
 }
 
-// DecodeAttributeList decodes an rtnetlink rtattr list into an *Attribute map.
-func DecodeAttributeList(b []byte) (AttList, []byte, error) {
+// DecodeAttributeList decodes an rtnetlink rtattr list into an AttList
+func DecodeAttributeList(b []byte) (AttributeList, []byte, error) {
 	am := make(map[int]*Attribute)
 
 	for {
@@ -55,7 +57,7 @@ func DecodeAttributeList(b []byte) (AttList, []byte, error) {
 		b = br
 	}
 
-	return AttList(am), b, nil
+	return AttributeList(am), b, nil
 }
 
 type Attribute struct {

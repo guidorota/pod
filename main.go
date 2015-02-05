@@ -14,8 +14,8 @@ func main() {
 	li := rtnetlink.NewLinkInfo()
 	li.Ifi.Family = syscall.AF_UNSPEC
 	li.Ifi.Flags = syscall.IFF_MULTICAST
-	li.Atts[syscall.IFLA_IFNAME] = rtnetlink.NewStringAttr(syscall.IFLA_IFNAME, "tbrdg")
-	li.Atts[syscall.IFLA_LINKINFO] = linfo
+	li.Atts.Add(rtnetlink.NewStringAttr(syscall.IFLA_IFNAME, "tbrdg"))
+	li.Atts.Add(linfo)
 
 	err := rtnetlink.CreateLink(li)
 	if err != nil {

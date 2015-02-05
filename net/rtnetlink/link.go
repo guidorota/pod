@@ -30,14 +30,14 @@ type IfInfomsg struct {
 
 type LinkInfo struct {
 	Ifi  IfInfomsg
-	Atts AttList
+	Atts AttributeList
 }
 
 func NewLinkInfo() *LinkInfo {
 	li := &LinkInfo{}
 
 	li.Ifi.Change = 0xFFFFFFFF
-	li.Atts = NewAttList()
+	li.Atts = NewAttributeList()
 
 	return li
 }
