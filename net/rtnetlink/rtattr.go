@@ -72,6 +72,13 @@ func (a *Attribute) Encode() []byte {
 	return b
 }
 
+func NewAttr(rt_type uint16, e netlink.Encoder) *Attribute {
+	return &Attribute{
+		rt_type,
+		e.Encode(),
+	}
+}
+
 func NewUint8Attr(rt_type uint16, value uint8) *Attribute {
 	a := &Attribute{
 		rt_type,

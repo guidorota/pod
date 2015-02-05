@@ -9,6 +9,14 @@ import (
 )
 
 const (
+	IFLA_INFO_UNSPEC = iota
+	IFLA_INFO_KIND   = iota
+	IFLA_INFO_DATA   = iota
+	IFLA_INFO_XSTATS = iota
+	IFLA_INFO_MAX    = iota
+)
+
+const (
 	SizeofIfInfomsg = syscall.SizeofIfInfomsg
 )
 
@@ -143,7 +151,8 @@ func DeleteLink(idx int32) error {
 func CreateLink(li *LinkInfo) error {
 	req := &netlink.Message{}
 	req.Type = syscall.RTM_NEWLINK
-	req.Flags = syscall.NLM_F_REQUEST | syscall.NLM_F_ACK
+	req.Flags = syscall.NLM_F_CREATE | syscall.NLM_F_EXCL |
+		syscall.NLM_F_REQUEST | syscall.NLM_F_ACK
 	req.Append(li)
 
 	return requestAck(req)

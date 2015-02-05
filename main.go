@@ -9,5 +9,19 @@ import (
 )
 
 func main() {
-	fmt.Println("test")
+	kind := rtnetlink.NewStringAttr(rtnetlink.IFLA_INFO_KIND, "bridge")
+	linfo := rtnetlink.NewAttr(syscall.IFLA_LINKINFO, kind)
+	li := rtnetlink.NewLinkInfo()
+	li.Ifi.Family = syscall.AF_UNSPEC
+	li.Ifi.Flags = syscall.IFF_MULTICAST
+	li.Atts[syscall.IFLA_IFNAME] = rtnetlink.NewStringAttr(syscall.IFLA_IFNAME, "tbrdg")
+	li.Atts[syscall.IFLA_LINKINFO] = linfo
+
+	err := rtnetlink.CreateLink(li)
+	if err != nil {
+		fmt.Println("error:", err)
+		os.Exit(1)
+	}
+
+	os.Exit(0)
 }
