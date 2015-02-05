@@ -95,3 +95,18 @@ func DeleteLink(name string) error {
 	}
 	return rt.DeleteLink(idx)
 }
+
+// IsUp returns true if the interface is up, false otherwise
+func IsUp(name string) (bool, error) {
+	idx, err := ifIndex(name)
+	if err != nil {
+		return false, err
+	}
+
+	li, err := rt.GetLinkInfo(idx)
+	if err != nil {
+		return false, err
+	}
+
+	return (li.Ifi.Flags & syscall.IFF_UP) == 1, nil
+}
