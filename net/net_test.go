@@ -5,7 +5,7 @@ import (
 )
 
 func TestIfIndex(t *testing.T) {
-	idx, err := IfIndex("lo")
+	idx, err := ifIndex("lo")
 	if err != nil {
 		t.Fatal("IfIndex error:", err)
 	}
@@ -13,7 +13,7 @@ func TestIfIndex(t *testing.T) {
 		t.Error("wrong index")
 	}
 
-	idx, err = IfIndex("asf")
+	idx, err = ifIndex("asf")
 	if err == nil {
 		t.Error("interface should not have been found")
 	}
