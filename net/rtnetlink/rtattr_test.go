@@ -228,3 +228,90 @@ func TestStringAttr(t *testing.T) {
 		t.Error("encode/decode error")
 	}
 }
+
+func TestAttributeListAddGet(t *testing.T) {
+	al := NewAttributeList()
+
+	att1 := NewUint16Attr(12, 43)
+	att2 := NewStringAttr(43, "test")
+
+	al.Add(att1)
+	al.Add(att2)
+
+	g1 := al.Get(12)
+	if g1 == nil {
+		t.Error("missing attribute")
+	}
+	if g1 != att1 {
+		t.Error("wrong attribute")
+	}
+
+	g2 := al.Get(43)
+	if g2 == nil {
+		t.Error("missing attribute")
+	}
+	if g2 != att2 {
+		t.Error("wrong attribute")
+	}
+
+	miss := al.Get(90)
+	if miss != nil {
+		t.Error("attribute should not exist")
+	}
+
+	att3 := NewInt32Attr(12, -23)
+	al.Add(att3)
+	g3 := al.Get(12)
+	if g3 == nil {
+		t.Error("missing attribute")
+	}
+	if g3 != att3 {
+		t.Error("wrong attribute")
+	}
+}
+
+func TestAttributeListEncodeDecode(t *testing.T) {
+	al := NewAttributeList()
+
+	att1 := NewUint16Attr(12, 43)
+	al.Add(att1)
+	att2 := NewStringAttr(43, "test")
+	al.Add(att2)
+	att3 := NewInt32Attr(56, -45)
+	al.Add(att3)
+
+	dec, b, err := DecodeAttributeList(al.Encode())
+	if err != nil {
+		t.Fatal("error decoding attribute list")
+	}
+	if len(b) > 0 {
+		t.Error("attribute list partially decoded")
+	}
+
+	g1 := dec.Get(int(att1.Type))
+	if g1 == nil {
+		t.Fatal("missing attribute")
+	}
+	if g1.Type != att1.Type ||
+		g1.AsUint16() != att1.AsUint16() {
+		t.Error("wrong attribute")
+	}
+
+	g2 := dec.Get(int(att2.Type))
+	if g2 == nil {
+		t.Fatal("missing attribute")
+	}
+	if g2.Type != att2.Type ||
+		g2.AsString() != att2.AsString() {
+		t.Error("wrong attribute")
+	}
+
+	g3 := dec.Get(int(att3.Type))
+	if g3 == nil {
+		t.Fatal("missing attribute")
+	}
+	if g3.Type != att3.Type ||
+		g3.AsInt32() != att3.AsInt32() {
+		t.Error("wrong attribute")
+	}
+}
