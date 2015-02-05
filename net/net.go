@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"syscall"
 
-	"github.com/guidorota/pod/net/rtnetlink"
+	rt "github.com/guidorota/pod/net/rtnetlink"
 )
 
 // ifIndex looks up the index of the network interface whose name is passed as
 // parameter.
 func ifIndex(name string) (int32, error) {
-	lis, err := rtnetlink.GetAllLinkInfo()
+	lis, err := rt.GetAllLinkInfo()
 	if err != nil {
 		return -1, err
 	}
@@ -32,7 +32,7 @@ func checkIfName(name string) error {
 	nl := len(name)
 	if nl == 0 {
 		return fmt.Errorf("empty interface name")
-	} else if nl > rtnetlink.IF_NAMESIZE {
+	} else if nl > rt.IF_NAMESIZE {
 		return fmt.Errorf("interface name too long")
 	}
 	return nil
@@ -44,24 +44,54 @@ func CreateBridge(name string) error {
 		return err
 	}
 
-	li := rtnetlink.NewLinkInfo()
+	li := rt.NewLinkInfo()
 	li.Ifi.Family = syscall.AF_UNSPEC
 	li.Ifi.Flags = syscall.IFF_MULTICAST
 
-	nameAtt := rtnetlink.NewStringAttr(syscall.IFLA_IFNAME, name)
+	nameAtt := rt.NewStringAttr(syscall.IFLA_IFNAME, name)
 	li.Atts.Add(nameAtt)
 
-	kindAtt := rtnetlink.NewStringAttr(rtnetlink.IFLA_INFO_KIND, "bridge")
-	infoAtt := rtnetlink.NewAttr(syscall.IFLA_LINKINFO, kindAtt)
+	kindAtt := rt.NewStringAttr(rt.IFLA_INFO_KIND, "bridge")
+	infoAtt := rt.NewAttr(syscall.IFLA_LINKINFO, kindAtt)
 	li.Atts.Add(infoAtt)
 
-	return rtnetlink.CreateLink(li)
+	return rt.CreateLink(li)
 }
 
+func CreateVeth(name, peer string) error {
+	if err := checkIfName(name); err != nil {
+		return fmt.Errorf("name error:", err)
+	}
+	if err := checkIfName(peer); err != nil {
+		return fmt.Errorf("peer name error:", err)
+	}
+
+	// VETH_INFO_PEER
+	pLi := rt.NewLinkInfo()
+	pLi.Ifi.Family = syscall.AF_UNSPEC
+	pLi.Ifi.Flags = syscall.IFF_MULTICAST
+	pLi.Atts.Add(rt.NewStringAttr(syscall.IFLA_IFNAME, peer))
+	vethInfoPeer := rt.NewAttr(rt.VETH_INFO_PEER, pLi)
+
+	// IFLA_LINKINFO
+	iflaLinkInfo := rt.NewAttributeList()
+	iflaLinkInfo.Add(rt.NewStringAttr(rt.IFLA_INFO_KIND, "veth"))
+	iflaLinkInfo.Add(rt.NewAttr(rt.IFLA_INFO_DATA, vethInfoPeer))
+
+	li := rt.NewLinkInfo()
+	li.Ifi.Family = syscall.AF_UNSPEC
+	li.Ifi.Flags = syscall.IFF_MULTICAST
+	li.Atts.Add(rt.NewStringAttr(syscall.IFLA_IFNAME, name))
+	li.Atts.Add(rt.NewAttr(syscall.IFLA_LINKINFO, iflaLinkInfo))
+
+	return rt.CreateLink(li)
+}
+
+// DeleteLink removes a network interface from the system
 func DeleteLink(name string) error {
 	idx, err := ifIndex(name)
 	if err != nil {
 		return err
 	}
-	return rtnetlink.DeleteLink(idx)
+	return rt.DeleteLink(idx)
 }

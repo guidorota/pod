@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	err := net.CreateBridge("tbrdg")
+	err := net.CreateVeth("veth0", "veth1")
 	if err != nil {
 		fmt.Println("error")
 		os.Exit(1)
