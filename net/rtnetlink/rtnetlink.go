@@ -1,6 +1,7 @@
 package rtnetlink
 
 import (
+	"fmt"
 	"syscall"
 
 	"github.com/guidorota/pod/net/netlink"
@@ -12,16 +13,38 @@ var kernel = &syscall.SockaddrNetlink{
 	Pid:    0,
 }
 
+// requestAck is a utility method that opens a NETLINK_ROUTE connection, sends
+// a single request message and checks that a single ack is returned.
+func requestAck(req *netlink.Message) error {
+	msgs, err := request(req)
+	if err != nil {
+		return err
+	}
+	if len(msgs) != 1 {
+		return fmt.Errorf("unexpected number of response messages")
+	}
+
+	m := msgs[0]
+	if m.IsError() {
+		return m.Error()
+	}
+	if !m.IsAck() {
+		return fmt.Errorf("no ack received")
+	}
+
+	return nil
+}
+
 // request is a utility method that opens a NETLINK_ROUTE connection, sends a
 // single request message and waits for the related response.
-func request(msg *netlink.Message) ([]*netlink.Message, error) {
+func request(req *netlink.Message) ([]*netlink.Message, error) {
 	c, err := netlink.Connect(syscall.NETLINK_ROUTE)
 	if err != nil {
 		return nil, err
 	}
 	defer c.Close()
 
-	if err := c.Send(kernel, msg); err != nil {
+	if err := c.Send(kernel, req); err != nil {
 		return nil, err
 	}
 
