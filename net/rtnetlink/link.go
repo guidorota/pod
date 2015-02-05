@@ -64,8 +64,8 @@ func DecodeLinkInfo(b []byte) (*LinkInfo, error) {
 	return &li, nil
 }
 
-// GetInfo returns information regarding a single network interface.
-func GetInfo(idx int32) (*LinkInfo, error) {
+// GetLinkInfo returns information regarding a single network interface.
+func GetLinkInfo(idx int32) (*LinkInfo, error) {
 	li := NewLinkInfo()
 	li.Ifi.Family = syscall.AF_UNSPEC
 	li.Ifi.Index = idx
@@ -94,8 +94,8 @@ func GetInfo(idx int32) (*LinkInfo, error) {
 	return DecodeLinkInfo(m.Data())
 }
 
-// GetAllInfo returns information regarding all network interfaces.
-func GetAllInfo() ([]*LinkInfo, error) {
+// GetAllLinkInfo returns information regarding all network interfaces.
+func GetAllLinkInfo() ([]*LinkInfo, error) {
 	li := NewLinkInfo()
 	li.Ifi.Family = syscall.AF_UNSPEC
 
@@ -125,4 +125,33 @@ func GetAllInfo() ([]*LinkInfo, error) {
 	}
 
 	return infos, nil
+}
+
+func DeleteLink(idx int32) error {
+	li := NewLinkInfo()
+	li.Ifi.Family = syscall.AF_UNSPEC
+	li.Ifi.Index = idx
+
+	req := &netlink.Message{}
+	req.Type = syscall.RTM_DELLINK
+	req.Flags = syscall.NLM_F_REQUEST | syscall.NLM_F_ACK
+	req.Append(li)
+
+	msgs, err := request(req)
+	if err != nil {
+		return err
+	}
+	if len(msgs) != 1 {
+		return fmt.Errorf("unexpected number of response messages")
+	}
+
+	m := msgs[0]
+	if m.IsError() {
+		return m.Error()
+	}
+	if !m.IsAck() {
+		return fmt.Errorf("no ack received")
+	}
+
+	return nil
 }

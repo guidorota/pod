@@ -62,8 +62,8 @@ func TestLinkInfoDecode(t *testing.T) {
 	}
 }
 
-func TestGetAllInfo(t *testing.T) {
-	lis, err := GetAllInfo()
+func TestGetAllLinkInfo(t *testing.T) {
+	lis, err := GetAllLinkInfo()
 	if err != nil {
 		t.Fatal("error retrieving interface information", err)
 	}
@@ -73,8 +73,8 @@ func TestGetAllInfo(t *testing.T) {
 	}
 }
 
-func TestGetInfo(t *testing.T) {
-	li, err := GetInfo(1)
+func TestGetLinkInfo(t *testing.T) {
+	li, err := GetLinkInfo(1)
 	if err != nil {
 		t.Fatal("error retrieving interface information", err)
 	}

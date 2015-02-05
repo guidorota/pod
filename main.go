@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	infos, err := rtnetlink.GetAllInfo()
+	infos, err := rtnetlink.GetAllLinkInfo()
 	if err != nil {
 		fmt.Println("error:", err)
 		os.Exit(1)
@@ -21,7 +21,7 @@ func main() {
 		fmt.Println(a.AsString())
 	}
 
-	info, err := rtnetlink.GetInfo(1)
+	info, err := rtnetlink.GetLinkInfo(1)
 	if err != nil {
 		fmt.Println("error:", err)
 		os.Exit(1)
@@ -30,7 +30,7 @@ func main() {
 	a := info.Atts[syscall.IFLA_IFNAME]
 	fmt.Println(a.AsString())
 
-	info, err = rtnetlink.GetInfo(56)
+	info, err = rtnetlink.GetLinkInfo(56)
 	fmt.Println("error:", err)
 
 	os.Exit(0)
