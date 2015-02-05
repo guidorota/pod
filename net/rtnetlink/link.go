@@ -9,11 +9,19 @@ import (
 )
 
 const (
+	IF_NAMESIZE = 16
+)
+
+const (
 	IFLA_INFO_UNSPEC = iota
 	IFLA_INFO_KIND   = iota
 	IFLA_INFO_DATA   = iota
 	IFLA_INFO_XSTATS = iota
-	IFLA_INFO_MAX    = iota
+)
+
+const (
+	VETH_INFO_UNSPEC = iota
+	VETH_INFO_PEER   = iota
 )
 
 const (

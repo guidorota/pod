@@ -7,6 +7,8 @@ import (
 	"github.com/guidorota/pod/net/rtnetlink"
 )
 
+// ifIndex looks up the index of the network interface whose name is passed as
+// parameter.
 func ifIndex(name string) (int32, error) {
 	lis, err := rtnetlink.GetAllLinkInfo()
 	if err != nil {
@@ -26,7 +28,22 @@ func ifIndex(name string) (int32, error) {
 	return -1, fmt.Errorf("interface '%v' not found", name)
 }
 
+func checkIfName(name string) error {
+	nl := len(name)
+	if nl == 0 {
+		return fmt.Errorf("empty interface name")
+	} else if nl > rtnetlink.IF_NAMESIZE {
+		return fmt.Errorf("interface name too long")
+	}
+	return nil
+}
+
+// CreateBridge creates a new bridge interface.
 func CreateBridge(name string) error {
+	if err := checkIfName(name); err != nil {
+		return err
+	}
+
 	li := rtnetlink.NewLinkInfo()
 	li.Ifi.Family = syscall.AF_UNSPEC
 	li.Ifi.Flags = syscall.IFF_MULTICAST
