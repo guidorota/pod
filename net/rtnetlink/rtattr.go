@@ -1,6 +1,7 @@
 package rtnetlink
 
 import (
+	"strings"
 	"syscall"
 	"unsafe"
 
@@ -157,5 +158,5 @@ func NewStringAttr(rt_type uint16, value string) *Attribute {
 }
 
 func (a *Attribute) AsString() string {
-	return string(a.data)
+	return strings.TrimRight(string(a.data), "\x00")
 }

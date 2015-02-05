@@ -4,8 +4,6 @@ import (
 	"syscall"
 	"testing"
 	"unsafe"
-
-	"github.com/guidorota/pod/net/netlink"
 )
 
 var li = &LinkInfo{}
@@ -61,5 +59,35 @@ func TestLinkInfoDecode(t *testing.T) {
 	}
 	if new_li.Ifi.Change != li.Ifi.Change {
 		t.Error("wrong change")
+	}
+}
+
+func TestGetAllInfo(t *testing.T) {
+	lis, err := GetAllInfo()
+	if err != nil {
+		t.Fatal("error retrieving interface information", err)
+	}
+
+	if len(lis) == 0 {
+		t.Fatal("no information retrieved")
+	}
+}
+
+func TestGetInfo(t *testing.T) {
+	li, err := GetInfo(1)
+	if err != nil {
+		t.Fatal("error retrieving interface information", err)
+	}
+
+	if li.Ifi.Index != 1 {
+		t.Error("wrong index")
+	}
+
+	a, ok := li.Atts[syscall.IFLA_IFNAME]
+	if !ok {
+		t.Fatal("missing interface name")
+	}
+	if a.AsString() != "lo" {
+		t.Error("wrong interface name")
 	}
 }
