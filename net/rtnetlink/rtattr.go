@@ -20,6 +20,7 @@ type Attribute struct {
 	data []byte
 }
 
+// DecodeAttributeList decodes an rtnetlink rtattr list into an *Attribute map.
 func DecodeAttributeList(b []byte) (map[int]*Attribute, []byte, error) {
 	am := make(map[int]*Attribute)
 
@@ -37,6 +38,7 @@ func DecodeAttributeList(b []byte) (map[int]*Attribute, []byte, error) {
 	return am, b, nil
 }
 
+// DecodeAttribute decodes a single rtnetlink rtattr into an *Attribute.
 func DecodeAttribute(b []byte) (*Attribute, []byte, error) {
 	if len(b) < SizeofRtAttr {
 		return nil, nil, netlink.ErrNoData

@@ -38,7 +38,7 @@ func (l *LinkInfo) Encode() []byte {
 	return b
 }
 
-func decodeLinkInfo(m *netlink.Message) (*LinkInfo, error) {
+func DecodeLinkInfo(m *netlink.Message) (*LinkInfo, error) {
 	li := LinkInfo{}
 	b := m.Data()
 
@@ -78,7 +78,7 @@ func GetAllInfo() ([]*LinkInfo, error) {
 		if m.IsAck() {
 			return nil, fmt.Errorf("unexpected ack reply")
 		}
-		i, err := decodeLinkInfo(m)
+		i, err := DecodeLinkInfo(m)
 		if err != nil {
 			return nil, err
 		}
