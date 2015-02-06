@@ -64,3 +64,14 @@ func TestAddressDecode(t *testing.T) {
 		t.Error("wrong index")
 	}
 }
+
+func TestGetAdds(t *testing.T) {
+	as, err := GetAdds()
+	if err != nil {
+		t.Fatal("error fetching addresses for interface 'lo'")
+	}
+
+	if len(as) == 0 {
+		t.Fatal("no addresses found")
+	}
+}

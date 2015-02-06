@@ -56,13 +56,13 @@ func DecodeAddress(b []byte) (*Address, error) {
 	return &a, nil
 }
 
-func GetLinkAddress(idx int32) ([]*Address, error) {
+// GetAdds retrieves all address of all available network interfaces.
+func GetAdds() ([]*Address, error) {
 	a := &Address{}
-	a.Ifa.Index = idx
 
 	req := &netlink.Message{}
 	req.Type = syscall.RTM_GETADDR
-	req.Flags = syscall.NLM_F_REQUEST | syscall.NLM_F_ROOT
+	req.Flags = syscall.NLM_F_REQUEST | syscall.NLM_F_DUMP
 	req.Append(a)
 
 	msgs, err := request(req)

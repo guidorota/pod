@@ -20,7 +20,7 @@ var RTA_STRUCT_ALEN = netlink.Align(SizeofRtAttr, RTA_ALIGNTO)
 type AttributeList map[int]*Attribute
 
 func NewAttributeList() AttributeList {
-	am := make(map[int]*Attribute)
+	am := make(AttributeList)
 	return AttributeList(am)
 }
 
@@ -192,4 +192,8 @@ func NewStringAttr(rt_type uint16, value string) *Attribute {
 
 func (a *Attribute) AsString() string {
 	return strings.TrimRight(string(a.data), "\x00")
+}
+
+func (a *Attribute) AsBytes() []byte {
+	return a.data
 }
