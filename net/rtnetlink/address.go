@@ -1,6 +1,7 @@
 package rtnetlink
 
 import (
+	"fmt"
 	"syscall"
 	"unsafe"
 
@@ -54,4 +55,36 @@ func DecodeAddress(b []byte) (*Address, error) {
 	a.Atts = atts
 
 	return &a, nil
+}
+
+func GetLinkAddress(idx int32) ([]*Address, error) {
+	a := &Address{}
+	a.Ifa.Index = idx
+
+	req := &netlink.Message{}
+	req.Type = syscall.RTM_GETADDR
+	req.Flags = syscall.NLM_F_REQUEST | syscall.NLM_F_ROOT
+	req.Append(a)
+
+	msgs, err := request(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var as []*Address
+	for _, m := range msgs {
+		if m.IsError() {
+			return nil, m.Error()
+		}
+		if m.IsAck() {
+			return nil, fmt.Errorf("unexpected ack reply")
+		}
+		i, err := DecodeAddress(m.Data())
+		if err != nil {
+			return nil, err
+		}
+		as = append(as, i)
+	}
+
+	return as, nil
 }

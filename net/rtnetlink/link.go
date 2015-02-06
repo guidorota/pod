@@ -120,7 +120,7 @@ func GetAllLinkInfo() ([]*LinkInfo, error) {
 		return nil, err
 	}
 
-	var infos []*LinkInfo
+	var lis []*LinkInfo
 	for _, m := range msgs {
 		if m.IsError() {
 			return nil, m.Error()
@@ -132,10 +132,10 @@ func GetAllLinkInfo() ([]*LinkInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-		infos = append(infos, i)
+		lis = append(lis, i)
 	}
 
-	return infos, nil
+	return lis, nil
 }
 
 func DeleteLink(idx int32) error {
