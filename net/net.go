@@ -2,54 +2,11 @@ package net
 
 import (
 	"fmt"
+	"net"
 	"syscall"
 
 	rt "github.com/guidorota/pod/net/rtnetlink"
 )
-
-// ifIndex looks up the index of the network interface whose name is passed as
-// parameter.
-func ifIndex(name string) (int32, error) {
-	lis, err := rt.GetAllLinkInfo()
-	if err != nil {
-		return -1, err
-	}
-
-	for _, li := range lis {
-		a := li.Atts.Get(syscall.IFLA_IFNAME)
-		if a == nil {
-			return -1, fmt.Errorf("rtnetlink error, missing IFLA_IFNAME")
-		}
-		if name == a.AsString() {
-			return li.Ifi.Index, nil
-		}
-	}
-
-	return -1, fmt.Errorf("interface '%v' not found", name)
-}
-
-func ifName(idx int32) (string, error) {
-	li, err := rt.GetLinkInfo(idx)
-	if err != nil {
-		return "", err
-	}
-
-	a := li.Atts.Get(syscall.IFLA_IFNAME)
-	if a == nil {
-		return "", fmt.Errorf("rtnetlink error, missing IFLA_IFNAME")
-	}
-	return a.AsString(), nil
-}
-
-func checkIfName(name string) error {
-	nl := len(name)
-	if nl == 0 {
-		return fmt.Errorf("empty interface name")
-	} else if nl > rt.IF_NAMESIZE {
-		return fmt.Errorf("interface name too long")
-	}
-	return nil
-}
 
 // Interface represents a network interface.
 type Interface int32
@@ -139,6 +96,31 @@ func (ifa Interface) Name() (string, error) {
 	return ifName(int32(ifa))
 }
 
+func (ifa Interface) Addrs() ([]*net.IPNet, error) {
+	as, err := rt.GetAddrs()
+	if err != nil {
+		return nil, err
+	}
+
+	var nets []*net.IPNet
+	for _, a := range as {
+		if a.Ifa.Index != int32(ifa) {
+			continue
+		}
+		ipa := a.Atts.Get(syscall.IFA_ADDRESS)
+		if ipa == nil {
+			return nil, fmt.Errorf("rtnetlink error, missing IFA_ADDRESS")
+		}
+
+		n := &net.IPNet{}
+		n.IP = ipa.AsIP()
+		n.Mask = net.CIDRMask(int(a.Ifa.PrefixLen), 8*len(n.IP))
+
+		nets = append(nets, n)
+	}
+	return nets, nil
+}
+
 func (ifa Interface) GetAttribute(name int) (*rt.Attribute, error) {
 	li, err := rt.GetLinkInfo(int32(ifa))
 	if err != nil {
@@ -218,4 +200,51 @@ func (ifa Interface) SetMaster(master string) error {
 func (ifa Interface) SetNamespace(pid int) error {
 	att := rt.NewInt32Attr(syscall.IFLA_NET_NS_PID, int32(pid))
 	return setAttribute(int32(ifa), att)
+}
+
+// ifIndex looks up the index of the network interface whose name is passed as
+// parameter.
+func ifIndex(name string) (int32, error) {
+	lis, err := rt.GetAllLinkInfo()
+	if err != nil {
+		return -1, err
+	}
+
+	for _, li := range lis {
+		a := li.Atts.Get(syscall.IFLA_IFNAME)
+		if a == nil {
+			return -1, fmt.Errorf("rtnetlink error, missing IFLA_IFNAME")
+		}
+		if name == a.AsString() {
+			return li.Ifi.Index, nil
+		}
+	}
+
+	return -1, fmt.Errorf("interface '%v' not found", name)
+}
+
+// ifName returns the interface name given its index
+func ifName(idx int32) (string, error) {
+	li, err := rt.GetLinkInfo(idx)
+	if err != nil {
+		return "", err
+	}
+
+	a := li.Atts.Get(syscall.IFLA_IFNAME)
+	if a == nil {
+		return "", fmt.Errorf("rtnetlink error, missing IFLA_IFNAME")
+	}
+	return a.AsString(), nil
+}
+
+// checkIfName returns an error in case the string passed as parameter is not a
+// valid interface name.
+func checkIfName(name string) error {
+	nl := len(name)
+	if nl == 0 {
+		return fmt.Errorf("empty interface name")
+	} else if nl > rt.IF_NAMESIZE {
+		return fmt.Errorf("interface name too long")
+	}
+	return nil
 }

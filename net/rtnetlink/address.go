@@ -56,8 +56,8 @@ func DecodeAddress(b []byte) (*Address, error) {
 	return &a, nil
 }
 
-// GetAdds retrieves all address of all available network interfaces.
-func GetAdds() ([]*Address, error) {
+// GetAddrs retrieves all address of all available network interfaces.
+func GetAddrs() ([]*Address, error) {
 	a := &Address{}
 
 	req := &netlink.Message{}

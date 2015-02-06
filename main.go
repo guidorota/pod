@@ -3,22 +3,25 @@ package main
 import (
 	"fmt"
 	"os"
-	"syscall"
 
-	"github.com/guidorota/pod/net/rtnetlink"
+	"github.com/guidorota/pod/net"
 )
 
 func main() {
-	as, err := rtnetlink.GetAdds()
+	lo, err := net.FromName("lo")
 	if err != nil {
-		fmt.Println("error fetching addresses:", err)
+		fmt.Println("cannot find lo")
+		os.Exit(1)
+	}
+
+	as, err := lo.Addrs()
+	if err != nil {
+		fmt.Println("error fetching addresses")
 		os.Exit(1)
 	}
 
 	for _, a := range as {
-		att := a.Atts.Get(syscall.IFA_ADDRESS)
-		fmt.Println(a.Ifa.Index, att.AsIP())
+		fmt.Println(a)
 	}
-
 	os.Exit(0)
 }
