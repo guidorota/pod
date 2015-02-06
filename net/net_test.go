@@ -190,3 +190,30 @@ func TestRename(t *testing.T) {
 		t.Error("bridge was not renamed properly")
 	}
 }
+
+func TestSetMaster(t *testing.T) {
+	br, err := NewBridge(bridgeName)
+	if err != nil {
+		t.Fatal("error creating bridge")
+	}
+	defer func() {
+		if err := br.Delete(); err != nil {
+			t.Error("error deleting bridge")
+		}
+	}()
+
+	v0, _, err := NewVeth(veth0Name, veth1Name)
+	if err != nil {
+		t.Error("error creating veth pair")
+		return
+	}
+	defer func() {
+		if err := v0.Delete(); err != nil {
+			t.Error("error deleting veth pair")
+		}
+	}()
+
+	if err := v0.SetMaster(bridgeName); err != nil {
+		t.Error("error setting master interface")
+	}
+}
