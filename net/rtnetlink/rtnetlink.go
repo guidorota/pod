@@ -25,9 +25,6 @@ func requestAck(req *netlink.Message) error {
 	}
 
 	m := msgs[0]
-	if m.IsError() {
-		return m.Error()
-	}
 	if !m.IsAck() {
 		return fmt.Errorf("no ack received")
 	}
@@ -51,6 +48,14 @@ func request(req *netlink.Message) ([]*netlink.Message, error) {
 	msgs, err := c.Recv()
 	if err != nil {
 		return nil, err
+	}
+
+	// Check if there's been an error in the rtnetlink invocation
+	if len(msgs) == 1 {
+		m := msgs[0]
+		if m.IsError() {
+			return nil, m.Error()
+		}
 	}
 
 	return msgs, nil

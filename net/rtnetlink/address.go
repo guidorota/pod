@@ -1,7 +1,6 @@
 package rtnetlink
 
 import (
-	"fmt"
 	"syscall"
 	"unsafe"
 
@@ -73,12 +72,6 @@ func GetLinkAddress(idx int32) ([]*Address, error) {
 
 	var as []*Address
 	for _, m := range msgs {
-		if m.IsError() {
-			return nil, m.Error()
-		}
-		if m.IsAck() {
-			return nil, fmt.Errorf("unexpected ack reply")
-		}
 		i, err := DecodeAddress(m.Data())
 		if err != nil {
 			return nil, err

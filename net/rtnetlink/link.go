@@ -122,12 +122,6 @@ func GetAllLinkInfo() ([]*LinkInfo, error) {
 
 	var lis []*LinkInfo
 	for _, m := range msgs {
-		if m.IsError() {
-			return nil, m.Error()
-		}
-		if m.IsAck() {
-			return nil, fmt.Errorf("unexpected ack reply")
-		}
 		i, err := DecodeLinkInfo(m.Data())
 		if err != nil {
 			return nil, err
