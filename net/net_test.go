@@ -157,3 +157,36 @@ func TestUpDown(t *testing.T) {
 		t.Error("interface was not brought down properly")
 	}
 }
+
+func TestRename(t *testing.T) {
+	br, err := NewBridge(bridgeName)
+	if err != nil {
+		t.Fatal("error creating bridge")
+	}
+	defer func() {
+		if err := br.Delete(); err != nil {
+			t.Error("error deleting bridge")
+		}
+	}()
+
+	n, err := br.Name()
+	if err != nil {
+		t.Error("error retrieving interface name")
+	}
+	if n != bridgeName {
+		t.Error("wrong bridge name")
+	}
+
+	newName := bridgeName + "new"
+	if err := br.Rename(newName); err != nil {
+		t.Error("error renaming bridge")
+	}
+
+	n, err = br.Name()
+	if err != nil {
+		t.Error("error retrieving interface name")
+	}
+	if n != newName {
+		t.Error("bridge was not renamed properly")
+	}
+}

@@ -161,8 +161,8 @@ func changeFlags(idx int32, set, unset uint32) error {
 	}
 
 	nli := rt.NewLinkInfo()
-	nli.Ifi.Family = syscall.AF_UNSPEC
-	nli.Ifi.Index = idx
+	nli.Ifi.Family = li.Ifi.Family
+	nli.Ifi.Index = li.Ifi.Index
 	nli.Ifi.Flags = (li.Ifi.Flags | set) & ^unset
 
 	return rt.ModifyLink(nli)
@@ -174,4 +174,39 @@ func (ifa Interface) Down() error {
 
 func (ifa Interface) Up() error {
 	return changeFlags(int32(ifa), syscall.IFF_UP, 0)
+}
+
+func setAttribute(idx int32, att *rt.Attribute) error {
+	li, err := rt.GetLinkInfo(idx)
+	if err != nil {
+		return err
+	}
+
+	nli := rt.NewLinkInfo()
+	nli.Ifi.Family = li.Ifi.Family
+	nli.Ifi.Index = li.Ifi.Index
+	nli.Ifi.Flags = li.Ifi.Flags
+	nli.Atts.Add(att)
+
+	return rt.ModifyLink(nli)
+}
+
+func (ifa Interface) Rename(name string) error {
+	att := rt.NewStringAttr(syscall.IFLA_IFNAME, name)
+	return setAttribute(int32(ifa), att)
+}
+
+func (ifa Interface) SetMaster(master string) error {
+	mIdx, err := ifIndex(master)
+	if err != nil {
+		return fmt.Errorf("cannot find master: %v", err)
+	}
+
+	att := rt.NewInt32Attr(syscall.IFLA_MASTER, mIdx)
+	return setAttribute(int32(ifa), att)
+}
+
+func (ifa Interface) SetNamespace(pid int) error {
+	att := rt.NewInt32Attr(syscall.IFLA_NET_NS_PID, int32(pid))
+	return setAttribute(int32(ifa), att)
 }
