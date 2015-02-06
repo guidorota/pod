@@ -139,6 +139,15 @@ func (ifa Interface) Name() (string, error) {
 	return ifName(int32(ifa))
 }
 
+func (ifa Interface) GetAttribute(name int) (*rt.Attribute, error) {
+	li, err := rt.GetLinkInfo(int32(ifa))
+	if err != nil {
+		return nil, err
+	}
+
+	return li.Atts.Get(name), nil
+}
+
 // DeleteLink removes a network interface from the system
 func (ifa Interface) Delete() error {
 	return rt.DeleteLink(int32(ifa))

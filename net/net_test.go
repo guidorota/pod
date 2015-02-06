@@ -1,6 +1,7 @@
 package net
 
 import (
+	"syscall"
 	"testing"
 )
 
@@ -215,5 +216,16 @@ func TestSetMaster(t *testing.T) {
 
 	if err := v0.SetMaster(bridgeName); err != nil {
 		t.Error("error setting master interface")
+	}
+
+	att, err := v0.GetAttribute(syscall.IFLA_MASTER)
+	if err != nil {
+		t.Error("error retrieving attribute IFLA_MASTER")
+	}
+	if att == nil {
+		t.Error("attribute IFLA_MASTER does not exist")
+	}
+	if att.AsInt32() != int32(br) {
+		t.Error("wrong master")
 	}
 }
