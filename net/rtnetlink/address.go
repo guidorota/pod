@@ -81,3 +81,12 @@ func GetAddrs() ([]*Address, error) {
 
 	return as, nil
 }
+
+func SetAddr(addr *Address) error {
+	req := &netlink.Message{}
+	req.Type = syscall.RTM_NEWADDR
+	req.Flags = syscall.NLM_F_REQUEST | syscall.NLM_F_CREATE |
+		syscall.NLM_F_EXCL | syscall.NLM_F_ACK
+
+	return requestAck(req)
+}
