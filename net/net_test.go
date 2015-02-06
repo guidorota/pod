@@ -229,3 +229,18 @@ func TestSetMaster(t *testing.T) {
 		t.Error("wrong master")
 	}
 }
+
+func TestGetAddr(t *testing.T) {
+	lo, err := FromName("lo")
+	if err != nil {
+		t.Fatal("error accessing loopback interface")
+	}
+
+	as, err := lo.Addrs()
+	if err != nil {
+		t.Fatal("error reading addresses")
+	}
+	if len(as) == 0 {
+		t.Fatal("no addresses found")
+	}
+}
