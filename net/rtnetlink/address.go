@@ -87,6 +87,7 @@ func SetAddr(addr *Address) error {
 	req.Type = syscall.RTM_NEWADDR
 	req.Flags = syscall.NLM_F_REQUEST | syscall.NLM_F_CREATE |
 		syscall.NLM_F_EXCL | syscall.NLM_F_ACK
+	req.Append(addr)
 
 	return requestAck(req)
 }

@@ -2,26 +2,29 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"os"
 
-	"github.com/guidorota/pod/net"
+	cnet "github.com/guidorota/pod/net"
 )
 
 func main() {
-	lo, err := net.FromName("lo")
+	br, err := cnet.NewBridge("test_bridge")
 	if err != nil {
-		fmt.Println("cannot find lo")
+		fmt.Println("error creating bridge")
 		os.Exit(1)
 	}
 
-	as, err := lo.Addrs()
+	ip, ipNet, err := net.ParseCIDR("172.17.43.1/26")
 	if err != nil {
-		fmt.Println("error fetching addresses")
+		fmt.Println("error parsing cidr")
+		os.Exit(1)
+	}
+	err = br.SetAddr(ip, ipNet.Mask)
+	if err != nil {
+		fmt.Println("error setting address", err)
 		os.Exit(1)
 	}
 
-	for _, a := range as {
-		fmt.Println(a)
-	}
 	os.Exit(0)
 }

@@ -121,6 +121,50 @@ func (ifa Interface) Addrs() ([]*net.IPNet, error) {
 	return nets, nil
 }
 
+func (ifa Interface) SetAddr(addr net.IP, mask net.IPMask) error {
+	// convert the address to its minimum length
+	if v4 := addr.To4(); v4 != nil {
+		addr = v4
+	}
+
+	alen := len(addr)
+	plen, s := mask.Size()
+	if s != 8*alen {
+		return fmt.Errorf("length mismatch between address and mask")
+	}
+
+	a := rt.NewAddress()
+	a.Ifa.PrefixLen = uint8(plen)
+	a.Ifa.Index = int32(ifa)
+	if alen == net.IPv4len {
+		a.Ifa.Family = syscall.AF_INET
+	} else {
+		a.Ifa.Family = syscall.AF_INET6
+	}
+
+	a.Atts.Add(rt.NewIPAttr(syscall.IFA_ADDRESS, addr))
+	a.Atts.Add(rt.NewIPAttr(syscall.IFA_LOCAL, addr))
+	if alen == net.IPv4len {
+		bcast := defaultIPv4Bcast(addr, mask)
+		a.Atts.Add(rt.NewIPAttr(syscall.IFA_BROADCAST, bcast))
+	}
+
+	return rt.SetAddr(a)
+}
+
+func defaultIPv4Bcast(addr net.IP, mask net.IPMask) net.IP {
+	if len(addr) != net.IPv4len {
+		return nil
+	}
+
+	bcast := make(net.IP, net.IPv4len)
+	for i := range bcast {
+		bcast[i] = addr[i] | ^mask[i]
+	}
+
+	return bcast
+}
+
 func (ifa Interface) GetAttribute(name int) (*rt.Attribute, error) {
 	li, err := rt.GetLinkInfo(int32(ifa))
 	if err != nil {
