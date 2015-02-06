@@ -38,10 +38,23 @@ func checkIfName(name string) error {
 	return nil
 }
 
-// CreateBridge creates a new bridge interface.
-func CreateBridge(name string) error {
+// Interface represents a network interface.
+type Interface int32
+
+// FromName returns an Interface corresponding to an existing network
+// interface.
+func FromName(name string) (Interface, error) {
+	idx, err := ifIndex(name)
+	if err != nil {
+		return -1, err
+	}
+	return Interface(idx), nil
+}
+
+// NewBridge creates a new bridge interface.
+func NewBridge(name string) (Interface, error) {
 	if err := checkIfName(name); err != nil {
-		return err
+		return -1, err
 	}
 
 	li := rt.NewLinkInfo()
@@ -55,22 +68,31 @@ func CreateBridge(name string) error {
 	infoAtt := rt.NewAttribute(syscall.IFLA_LINKINFO, kindAtt)
 	li.Atts.Add(infoAtt)
 
-	return rt.CreateLink(li)
+	if err := rt.CreateLink(li); err != nil {
+		return -1, err
+	}
+
+	idx, err := ifIndex(name)
+	if err != nil {
+		return -1, err
+	}
+	return Interface(idx), nil
 }
 
-func CreateVeth(name, peer string) error {
-	if err := checkIfName(name); err != nil {
-		return fmt.Errorf("name error:", err)
+// NewVeth creates a new veth pair
+func NewVeth(name1, name2 string) (Interface, Interface, error) {
+	if err := checkIfName(name1); err != nil {
+		return -1, -1, fmt.Errorf("interface 1 name error:", err)
 	}
-	if err := checkIfName(peer); err != nil {
-		return fmt.Errorf("peer name error:", err)
+	if err := checkIfName(name2); err != nil {
+		return -1, -1, fmt.Errorf("interface 2 name error:", err)
 	}
 
 	// VETH_INFO_PEER
 	pLi := rt.NewLinkInfo()
 	pLi.Ifi.Family = syscall.AF_UNSPEC
 	pLi.Ifi.Flags = syscall.IFF_MULTICAST
-	pLi.Atts.Add(rt.NewStringAttr(syscall.IFLA_IFNAME, peer))
+	pLi.Atts.Add(rt.NewStringAttr(syscall.IFLA_IFNAME, name2))
 	vethInfoPeer := rt.NewAttribute(rt.VETH_INFO_PEER, pLi)
 
 	// IFLA_LINKINFO
@@ -81,29 +103,33 @@ func CreateVeth(name, peer string) error {
 	li := rt.NewLinkInfo()
 	li.Ifi.Family = syscall.AF_UNSPEC
 	li.Ifi.Flags = syscall.IFF_MULTICAST
-	li.Atts.Add(rt.NewStringAttr(syscall.IFLA_IFNAME, name))
+	li.Atts.Add(rt.NewStringAttr(syscall.IFLA_IFNAME, name1))
 	li.Atts.Add(rt.NewAttribute(syscall.IFLA_LINKINFO, iflaLinkInfo))
 
-	return rt.CreateLink(li)
+	if err := rt.CreateLink(li); err != nil {
+		return -1, -1, err
+	}
+
+	idx1, err := ifIndex(name1)
+	if err != nil {
+		return -1, -1, err
+	}
+	idx2, err := ifIndex(name2)
+	if err != nil {
+		return -1, -1, err
+	}
+
+	return Interface(idx1), Interface(idx2), nil
 }
 
 // DeleteLink removes a network interface from the system
-func DeleteLink(name string) error {
-	idx, err := ifIndex(name)
-	if err != nil {
-		return err
-	}
-	return rt.DeleteLink(idx)
+func (ifa Interface) Delete() error {
+	return rt.DeleteLink(int32(ifa))
 }
 
 // IsUp returns true if the interface is up, false otherwise
-func IsUp(name string) (bool, error) {
-	idx, err := ifIndex(name)
-	if err != nil {
-		return false, err
-	}
-
-	li, err := rt.GetLinkInfo(idx)
+func (ifa Interface) IsUp(name string) (bool, error) {
+	li, err := rt.GetLinkInfo(int32(ifa))
 	if err != nil {
 		return false, err
 	}
@@ -111,12 +137,7 @@ func IsUp(name string) (bool, error) {
 	return (li.Ifi.Flags & syscall.IFF_UP) == 1, nil
 }
 
-func changeFlags(name string, set, unset uint32) error {
-	idx, err := ifIndex(name)
-	if err != nil {
-		return err
-	}
-
+func changeFlags(idx int32, set, unset uint32) error {
 	li, err := rt.GetLinkInfo(idx)
 	if err != nil {
 		return err
@@ -130,10 +151,10 @@ func changeFlags(name string, set, unset uint32) error {
 	return rt.ModifyLink(li)
 }
 
-func Down(name string) error {
-	return changeFlags(name, 0, syscall.IFF_UP)
+func (ifa Interface) Down(name string) error {
+	return changeFlags(int32(ifa), 0, syscall.IFF_UP)
 }
 
-func Up(name string) error {
-	return changeFlags(name, syscall.IFF_UP, 0)
+func (ifa Interface) Up(name string) error {
+	return changeFlags(int32(ifa), syscall.IFF_UP, 0)
 }

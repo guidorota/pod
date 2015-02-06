@@ -39,3 +39,10 @@ func TestCheckIfName(t *testing.T) {
 		t.Error("no error on empty name")
 	}
 }
+
+func TestFromName(t *testing.T) {
+	_, err := FromName("lo")
+	if err != nil {
+		t.Fatal("missing lo interface")
+	}
+}
