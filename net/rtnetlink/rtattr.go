@@ -98,7 +98,7 @@ func (a *Attribute) Encode() []byte {
 	return b
 }
 
-func NewAttr(rt_type uint16, e netlink.Encoder) *Attribute {
+func NewAttribute(rt_type uint16, e netlink.Encoder) *Attribute {
 	return &Attribute{
 		rt_type,
 		e.Encode(),

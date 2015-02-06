@@ -52,7 +52,7 @@ func CreateBridge(name string) error {
 	li.Atts.Add(nameAtt)
 
 	kindAtt := rt.NewStringAttr(rt.IFLA_INFO_KIND, "bridge")
-	infoAtt := rt.NewAttr(syscall.IFLA_LINKINFO, kindAtt)
+	infoAtt := rt.NewAttribute(syscall.IFLA_LINKINFO, kindAtt)
 	li.Atts.Add(infoAtt)
 
 	return rt.CreateLink(li)
@@ -71,18 +71,18 @@ func CreateVeth(name, peer string) error {
 	pLi.Ifi.Family = syscall.AF_UNSPEC
 	pLi.Ifi.Flags = syscall.IFF_MULTICAST
 	pLi.Atts.Add(rt.NewStringAttr(syscall.IFLA_IFNAME, peer))
-	vethInfoPeer := rt.NewAttr(rt.VETH_INFO_PEER, pLi)
+	vethInfoPeer := rt.NewAttribute(rt.VETH_INFO_PEER, pLi)
 
 	// IFLA_LINKINFO
 	iflaLinkInfo := rt.NewAttributeList()
 	iflaLinkInfo.Add(rt.NewStringAttr(rt.IFLA_INFO_KIND, "veth"))
-	iflaLinkInfo.Add(rt.NewAttr(rt.IFLA_INFO_DATA, vethInfoPeer))
+	iflaLinkInfo.Add(rt.NewAttribute(rt.IFLA_INFO_DATA, vethInfoPeer))
 
 	li := rt.NewLinkInfo()
 	li.Ifi.Family = syscall.AF_UNSPEC
 	li.Ifi.Flags = syscall.IFF_MULTICAST
 	li.Atts.Add(rt.NewStringAttr(syscall.IFLA_IFNAME, name))
-	li.Atts.Add(rt.NewAttr(syscall.IFLA_LINKINFO, iflaLinkInfo))
+	li.Atts.Add(rt.NewAttribute(syscall.IFLA_LINKINFO, iflaLinkInfo))
 
 	return rt.CreateLink(li)
 }
