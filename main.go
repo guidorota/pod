@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"syscall"
 
 	"github.com/guidorota/pod/net/rtnetlink"
 )
@@ -15,7 +16,9 @@ func main() {
 	}
 
 	for _, a := range as {
-		fmt.Println(a.Ifa.Index, a.Ifa.PrefixLen)
+		att := a.Atts.Get(syscall.IFA_ADDRESS)
+		fmt.Println(a.Ifa.Index, att.AsIP())
 	}
+
 	os.Exit(0)
 }

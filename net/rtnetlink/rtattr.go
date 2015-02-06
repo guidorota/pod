@@ -1,6 +1,7 @@
 package rtnetlink
 
 import (
+	"net"
 	"strings"
 	"syscall"
 	"unsafe"
@@ -194,6 +195,18 @@ func (a *Attribute) AsString() string {
 	return strings.TrimRight(string(a.data), "\x00")
 }
 
-func (a *Attribute) AsBytes() []byte {
-	return a.data
+func NewIPAttr(rt_type uint16, ip net.IP) *Attribute {
+	a := &Attribute{Type: rt_type}
+
+	if v4 := ip.To4(); v4 != nil {
+		a.data = v4
+	} else {
+		a.data = ip
+	}
+
+	return a
+}
+
+func (a *Attribute) AsIP() net.IP {
+	return net.IP(a.data)
 }

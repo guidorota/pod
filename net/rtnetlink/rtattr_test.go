@@ -1,6 +1,7 @@
 package rtnetlink
 
 import (
+	"net"
 	"testing"
 	"unsafe"
 )
@@ -225,6 +226,38 @@ func TestStringAttr(t *testing.T) {
 	}
 	if a.Type != dec.Type ||
 		a.AsString() != dec.AsString() {
+		t.Error("encode/decode error")
+	}
+}
+
+func TestIPAttr(t *testing.T) {
+	value := net.ParseIP("127.0.0.1")
+	a := NewIPAttr(12, value)
+
+	if len(a.data) != 4 {
+		t.Error("wrong data length", len(a.data))
+	}
+	v := net.IP(a.data)
+	if !v.Equal(value) {
+		t.Error("wrong data content")
+	}
+
+	if a.Type != 12 {
+		t.Error("wrong type")
+	}
+	if !a.AsIP().Equal(value) {
+		t.Error("wrong value")
+	}
+
+	dec, b, err := DecodeAttribute(a.Encode())
+	if err != nil {
+		t.Error("decode error")
+	}
+	if len(b) != 0 {
+		t.Error("attribute was not decoded completely")
+	}
+	if a.Type != dec.Type ||
+		!a.AsIP().Equal(dec.AsIP()) {
 		t.Error("encode/decode error")
 	}
 }
