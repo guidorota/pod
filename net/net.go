@@ -28,6 +28,19 @@ func ifIndex(name string) (int32, error) {
 	return -1, fmt.Errorf("interface '%v' not found", name)
 }
 
+func ifName(idx int32) (string, error) {
+	li, err := rt.GetLinkInfo(idx)
+	if err != nil {
+		return "", err
+	}
+
+	a := li.Atts.Get(syscall.IFLA_IFNAME)
+	if a == nil {
+		return "", fmt.Errorf("rtnetlink error, missing IFLA_IFNAME")
+	}
+	return a.AsString(), nil
+}
+
 func checkIfName(name string) error {
 	nl := len(name)
 	if nl == 0 {
@@ -122,13 +135,17 @@ func NewVeth(name1, name2 string) (Interface, Interface, error) {
 	return Interface(idx1), Interface(idx2), nil
 }
 
+func (ifa Interface) Name() (string, error) {
+	return ifName(int32(ifa))
+}
+
 // DeleteLink removes a network interface from the system
 func (ifa Interface) Delete() error {
 	return rt.DeleteLink(int32(ifa))
 }
 
 // IsUp returns true if the interface is up, false otherwise
-func (ifa Interface) IsUp(name string) (bool, error) {
+func (ifa Interface) IsUp() (bool, error) {
 	li, err := rt.GetLinkInfo(int32(ifa))
 	if err != nil {
 		return false, err
@@ -144,17 +161,17 @@ func changeFlags(idx int32, set, unset uint32) error {
 	}
 
 	nli := rt.NewLinkInfo()
-	nli.Ifi.Family = li.Ifi.Family
-	nli.Ifi.Index = li.Ifi.Index
+	nli.Ifi.Family = syscall.AF_UNSPEC
+	nli.Ifi.Index = idx
 	nli.Ifi.Flags = (li.Ifi.Flags | set) & ^unset
 
-	return rt.ModifyLink(li)
+	return rt.ModifyLink(nli)
 }
 
-func (ifa Interface) Down(name string) error {
+func (ifa Interface) Down() error {
 	return changeFlags(int32(ifa), 0, syscall.IFF_UP)
 }
 
-func (ifa Interface) Up(name string) error {
+func (ifa Interface) Up() error {
 	return changeFlags(int32(ifa), syscall.IFF_UP, 0)
 }

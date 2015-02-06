@@ -4,10 +4,16 @@ import (
 	"testing"
 )
 
+const (
+	bridgeName = "test_bridge"
+	veth0Name  = "test_veth0"
+	veth1Name  = "test_veth1"
+)
+
 func TestIfIndex(t *testing.T) {
 	idx, err := ifIndex("lo")
 	if err != nil {
-		t.Fatal("IfIndex error:", err)
+		t.Fatal("ifIndex error:", err)
 	}
 	if idx < 1 {
 		t.Error("wrong index")
@@ -19,6 +25,21 @@ func TestIfIndex(t *testing.T) {
 	}
 	if idx > 0 {
 		t.Error("wrong interface index found")
+	}
+}
+
+func TestIfName(t *testing.T) {
+	name, err := ifName(1)
+	if err != nil {
+		t.Fatal("ifName error:", err)
+	}
+	if name != "lo" {
+		t.Error("wrong name, expected lo but got", name)
+	}
+
+	name, err = ifName(0)
+	if err == nil {
+		t.Fatal("error expected when probing interface nr. 0")
 	}
 }
 
@@ -44,5 +65,95 @@ func TestFromName(t *testing.T) {
 	_, err := FromName("lo")
 	if err != nil {
 		t.Fatal("missing lo interface")
+	}
+}
+
+func TestNewBridge(t *testing.T) {
+	br, err := NewBridge(bridgeName)
+	if err != nil {
+		t.Fatal("error creating bridge")
+	}
+	defer func() {
+		if err := br.Delete(); err != nil {
+			t.Error("error deleting bridge")
+		}
+	}()
+
+	n, err := br.Name()
+	if err != nil {
+		t.Error("error retrieving bridge name")
+	}
+	if n != bridgeName {
+		t.Error("wrong bridge name")
+	}
+}
+
+func TestNewVeth(t *testing.T) {
+	if0, if1, err := NewVeth(veth0Name, veth1Name)
+	if err != nil {
+		t.Fatal("error creating veth pair")
+	}
+	defer func() {
+		if err := if0.Delete(); err != nil {
+			t.Error("error deleting veth pair")
+		}
+	}()
+
+	n0, err := if0.Name()
+	if err != nil {
+		t.Error("error retrieving veth0 name")
+	}
+	if n0 != veth0Name {
+		t.Error("wrong veth0 name")
+	}
+
+	n1, err := if1.Name()
+	if err != nil {
+		t.Error("error retrieving veth1 name")
+	}
+	if n1 != veth1Name {
+		t.Error("wrong veth1 name")
+	}
+}
+
+func TestUpDown(t *testing.T) {
+	br, err := NewBridge(bridgeName)
+	if err != nil {
+		t.Fatal("error creating bridge")
+	}
+	defer func() {
+		if err := br.Delete(); err != nil {
+			t.Error("error deleting bridge")
+		}
+	}()
+
+	up, err := br.IsUp()
+	if err != nil {
+		t.Error("error probing interface status")
+	}
+	if up {
+		t.Error("interface should have not been created up")
+	}
+
+	if err := br.Up(); err != nil {
+		t.Error("error bringing the interface up:", err)
+	}
+	up, err = br.IsUp()
+	if err != nil {
+		t.Error("error probing interface status")
+	}
+	if !up {
+		t.Error("interface was not brought up properly")
+	}
+
+	if err := br.Down(); err != nil {
+		t.Error("error bringing the interface up:", err)
+	}
+	up, err = br.IsUp()
+	if err != nil {
+		t.Error("error probing interface status")
+	}
+	if up {
+		t.Error("interface was not brought down properly")
 	}
 }
