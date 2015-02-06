@@ -65,8 +65,8 @@ func TestAddressDecode(t *testing.T) {
 	}
 }
 
-func TestGetAdds(t *testing.T) {
-	as, err := GetAdds()
+func TestGetAddrs(t *testing.T) {
+	as, err := GetAddrs()
 	if err != nil {
 		t.Fatal("error fetching addresses for interface 'lo'")
 	}
