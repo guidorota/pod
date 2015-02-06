@@ -43,19 +43,16 @@ type LinkInfo struct {
 
 func NewLinkInfo() *LinkInfo {
 	li := &LinkInfo{}
-
 	li.Ifi.Change = 0xFFFFFFFF
 	li.Atts = NewAttributeList()
-
 	return li
 }
 
 func (l *LinkInfo) Encode() []byte {
-	b := make([]byte, 16)
+	b := make([]byte, SizeofIfInfomsg)
 	l.Ifi.Change = 0xFFFFFFFF
 
 	*(*IfInfomsg)(unsafe.Pointer(&b[0])) = l.Ifi
-
 	b = append(b, l.Atts.Encode()...)
 
 	return b
@@ -64,7 +61,7 @@ func (l *LinkInfo) Encode() []byte {
 func DecodeLinkInfo(b []byte) (*LinkInfo, error) {
 	li := LinkInfo{}
 
-	if len(b) < syscall.SizeofIfInfomsg {
+	if len(b) < SizeofIfInfomsg {
 		return nil, netlink.ErrNoData
 	}
 	li.Ifi = *(*IfInfomsg)(unsafe.Pointer(&b[0:SizeofIfInfomsg][0]))
