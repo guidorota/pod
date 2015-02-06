@@ -48,12 +48,12 @@ func NewLinkInfo() *LinkInfo {
 	return li
 }
 
-func (l *LinkInfo) Encode() []byte {
+func (li *LinkInfo) Encode() []byte {
 	b := make([]byte, SizeofIfInfomsg)
-	l.Ifi.Change = 0xFFFFFFFF
+	li.Ifi.Change = 0xFFFFFFFF
 
-	*(*IfInfomsg)(unsafe.Pointer(&b[0])) = l.Ifi
-	b = append(b, l.Atts.Encode()...)
+	*(*IfInfomsg)(unsafe.Pointer(&b[0])) = li.Ifi
+	b = append(b, li.Atts.Encode()...)
 
 	return b
 }
