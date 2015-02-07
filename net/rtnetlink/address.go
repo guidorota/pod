@@ -19,18 +19,18 @@ type IfAddrmsg struct {
 	Index     int32
 }
 
-type Address struct {
+type AddrInfo struct {
 	Ifa  IfAddrmsg
 	Atts AttributeList
 }
 
-func NewAddress() *Address {
-	a := &Address{}
+func NewAddrInfo() *AddrInfo {
+	a := &AddrInfo{}
 	a.Atts = NewAttributeList()
 	return a
 }
 
-func (a *Address) Encode() []byte {
+func (a *AddrInfo) Encode() []byte {
 	b := make([]byte, SizeofIfAddrmsg)
 
 	*(*IfAddrmsg)(unsafe.Pointer(&b[0])) = a.Ifa
@@ -39,8 +39,8 @@ func (a *Address) Encode() []byte {
 	return b
 }
 
-func DecodeAddress(b []byte) (*Address, error) {
-	a := Address{}
+func DecodeAddrInfo(b []byte) (*AddrInfo, error) {
+	a := AddrInfo{}
 
 	if len(b) < SizeofIfAddrmsg {
 		return nil, netlink.ErrNoData
@@ -56,9 +56,9 @@ func DecodeAddress(b []byte) (*Address, error) {
 	return &a, nil
 }
 
-// GetAddrs retrieves all address of all available network interfaces.
-func GetAddrs() ([]*Address, error) {
-	a := &Address{}
+// GetAddrInfos retrieves the addresses of all available network interfaces.
+func GetAddrInfos() ([]*AddrInfo, error) {
+	a := &AddrInfo{}
 
 	req := &netlink.Message{}
 	req.Type = syscall.RTM_GETADDR
@@ -70,24 +70,25 @@ func GetAddrs() ([]*Address, error) {
 		return nil, err
 	}
 
-	var as []*Address
+	var ais []*AddrInfo
 	for _, m := range msgs {
-		i, err := DecodeAddress(m.Data())
+		ai, err := DecodeAddrInfo(m.Data())
 		if err != nil {
 			return nil, err
 		}
-		as = append(as, i)
+		ais = append(ais, ai)
 	}
 
-	return as, nil
+	return ais, nil
 }
 
-func SetAddr(addr *Address) error {
+// AddAddr adds an address to a network interface.
+func AddAddr(ai *AddrInfo) error {
 	req := &netlink.Message{}
 	req.Type = syscall.RTM_NEWADDR
 	req.Flags = syscall.NLM_F_REQUEST | syscall.NLM_F_CREATE |
 		syscall.NLM_F_EXCL | syscall.NLM_F_ACK
-	req.Append(addr)
+	req.Append(ai)
 
 	return requestAck(req)
 }

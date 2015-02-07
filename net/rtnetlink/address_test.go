@@ -5,8 +5,8 @@ import (
 	"unsafe"
 )
 
-func TestAddressEncode(t *testing.T) {
-	a := &Address{}
+func TestAddrInfoEncode(t *testing.T) {
+	a := &AddrInfo{}
 	a.Ifa.Family = 12
 	a.Ifa.PrefixLen = 8
 	a.Ifa.Flags = 43
@@ -35,15 +35,15 @@ func TestAddressEncode(t *testing.T) {
 	}
 }
 
-func TestAddressDecode(t *testing.T) {
-	a := &Address{}
+func TestAddrInfoDecode(t *testing.T) {
+	a := &AddrInfo{}
 	a.Ifa.Family = 12
 	a.Ifa.PrefixLen = 8
 	a.Ifa.Flags = 43
 	a.Ifa.Scope = 84
 	a.Ifa.Index = 21
 
-	dec, err := DecodeAddress(a.Encode())
+	dec, err := DecodeAddrInfo(a.Encode())
 	if err != nil {
 		t.Fatal("error decoding address")
 	}
@@ -65,8 +65,8 @@ func TestAddressDecode(t *testing.T) {
 	}
 }
 
-func TestGetAddrs(t *testing.T) {
-	as, err := GetAddrs()
+func TestGetAddrInfos(t *testing.T) {
+	as, err := GetAddrInfos()
 	if err != nil {
 		t.Fatal("error fetching addresses for interface 'lo'")
 	}

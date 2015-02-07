@@ -8,6 +8,64 @@ import (
 	rt "github.com/guidorota/pod/net/rtnetlink"
 )
 
+// Address represents an IP address and its network mask
+type Address net.IPNet
+
+func NewAddress(ip net.IP, mask net.IPMask) *Address {
+	if v4 := ip.To4(); v4 != nil {
+		ip = v4
+		if len(mask) != net.IPv4len {
+			mask = mask[12:]
+		}
+	}
+
+	a := Address(net.IPNet{ip, mask})
+	return &a
+}
+
+func ParseCIDR(s string) (*Address, error) {
+	ip, ipNet, err := net.ParseCIDR(s)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewAddress(ip, ipNet.Mask), nil
+}
+
+func (a *Address) prefixLen() uint8 {
+	p, _ := a.Mask.Size()
+	return uint8(p)
+}
+
+func (a *Address) family() uint8 {
+	switch len(a.IP) {
+	case net.IPv4len:
+		return syscall.AF_INET
+	case net.IPv6len:
+		return syscall.AF_INET6
+	default:
+		return syscall.AF_UNSPEC
+	}
+}
+
+// bcast computes the default IPv4 broadcast address.
+func (a *Address) bcast() net.IP {
+	if len(a.IP) != net.IPv4len {
+		return nil
+	}
+
+	bcast := make(net.IP, net.IPv4len)
+	for i := range bcast {
+		bcast[i] = a.IP[i] | ^a.Mask[i]
+	}
+
+	return bcast
+}
+
+func (a *Address) String() string {
+	return (*net.IPNet)(a).String()
+}
+
 // Interface represents a network interface.
 type Interface int32
 
@@ -96,73 +154,42 @@ func (ifa Interface) Name() (string, error) {
 	return ifName(int32(ifa))
 }
 
-func (ifa Interface) Addrs() ([]*net.IPNet, error) {
-	as, err := rt.GetAddrs()
+func (ifa Interface) Addrs() ([]*Address, error) {
+	ais, err := rt.GetAddrInfos()
 	if err != nil {
 		return nil, err
 	}
 
-	var nets []*net.IPNet
-	for _, a := range as {
-		if a.Ifa.Index != int32(ifa) {
+	var as []*Address
+	for _, ai := range ais {
+		if ai.Ifa.Index != int32(ifa) {
 			continue
 		}
-		ipa := a.Atts.Get(syscall.IFA_ADDRESS)
+		ipa := ai.Atts.Get(syscall.IFA_ADDRESS)
 		if ipa == nil {
 			return nil, fmt.Errorf("rtnetlink error, missing IFA_ADDRESS")
 		}
 
-		n := &net.IPNet{}
-		n.IP = ipa.AsIP()
-		n.Mask = net.CIDRMask(int(a.Ifa.PrefixLen), 8*len(n.IP))
-
-		nets = append(nets, n)
+		ip := ipa.AsIP()
+		mask := net.CIDRMask(int(ai.Ifa.PrefixLen), 8*len(ip))
+		as = append(as, NewAddress(ip, mask))
 	}
-	return nets, nil
+	return as, nil
 }
 
-func (ifa Interface) SetAddr(addr net.IP, mask net.IPMask) error {
-	// convert the address to its minimum length
-	if v4 := addr.To4(); v4 != nil {
-		addr = v4
-	}
-
-	alen := len(addr)
-	plen, s := mask.Size()
-	if s != 8*alen {
-		return fmt.Errorf("length mismatch between address and mask")
-	}
-
-	a := rt.NewAddress()
-	a.Ifa.PrefixLen = uint8(plen)
+func (ifa Interface) SetAddr(addr *Address) error {
+	a := rt.NewAddrInfo()
+	a.Ifa.PrefixLen = addr.prefixLen()
 	a.Ifa.Index = int32(ifa)
-	if alen == net.IPv4len {
-		a.Ifa.Family = syscall.AF_INET
-	} else {
-		a.Ifa.Family = syscall.AF_INET6
+	a.Ifa.Family = addr.family()
+
+	a.Atts.Add(rt.NewIPAttr(syscall.IFA_ADDRESS, addr.IP))
+	a.Atts.Add(rt.NewIPAttr(syscall.IFA_LOCAL, addr.IP))
+	if addr.family() == syscall.AF_INET {
+		a.Atts.Add(rt.NewIPAttr(syscall.IFA_BROADCAST, addr.bcast()))
 	}
 
-	a.Atts.Add(rt.NewIPAttr(syscall.IFA_ADDRESS, addr))
-	a.Atts.Add(rt.NewIPAttr(syscall.IFA_LOCAL, addr))
-	if alen == net.IPv4len {
-		bcast := defaultIPv4Bcast(addr, mask)
-		a.Atts.Add(rt.NewIPAttr(syscall.IFA_BROADCAST, bcast))
-	}
-
-	return rt.SetAddr(a)
-}
-
-func defaultIPv4Bcast(addr net.IP, mask net.IPMask) net.IP {
-	if len(addr) != net.IPv4len {
-		return nil
-	}
-
-	bcast := make(net.IP, net.IPv4len)
-	for i := range bcast {
-		bcast[i] = addr[i] | ^mask[i]
-	}
-
-	return bcast
+	return rt.AddAddr(a)
 }
 
 func (ifa Interface) GetAttribute(name int) (*rt.Attribute, error) {
