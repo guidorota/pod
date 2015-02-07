@@ -1,6 +1,7 @@
 package net
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"syscall"
@@ -30,6 +31,16 @@ func ParseCIDR(s string) (*Address, error) {
 	}
 
 	return NewAddress(ip, ipNet.Mask), nil
+}
+
+func (a *Address) Equal(other *Address) bool {
+	if !a.IP.Equal(other.IP) {
+		return false
+	}
+	if bytes.Compare(a.Mask, other.Mask) != 0 {
+		return false
+	}
+	return true
 }
 
 func (a *Address) prefixLen() uint8 {

@@ -2,6 +2,7 @@ package net
 
 import (
 	"bytes"
+	"net"
 	"syscall"
 	"testing"
 )
@@ -231,6 +232,39 @@ func TestSetMaster(t *testing.T) {
 	}
 }
 
+func TestAddressEqual(t *testing.T) {
+	a1, err1 := ParseCIDR("127.0.0.1/24")
+	a2, err2 := ParseCIDR("127.0.0.1/16")
+	a3, err3 := ParseCIDR("87.3.2.4/24")
+	if err1 != nil || err2 != nil || err3 != nil {
+		t.Fatal("error while parsing address in cidr format")
+	}
+
+	if !a1.Equal(a1) || !a2.Equal(a2) || !a3.Equal(a3) {
+		t.Error("equal is not reflexive")
+	}
+
+	if a1.Equal(a2) || a1.Equal(a3) || a2.Equal(a3) {
+		t.Error("addresses are mistakenly recognized as equal")
+	}
+}
+
+func TestParseCIDR(t *testing.T) {
+	a, err := ParseCIDR("173.231.32.45/12")
+	if err != nil {
+		t.Fatal("error while parsing address in cidr format")
+	}
+
+	ip := net.IPv4(173, 231, 32, 45)
+	if !a.IP.Equal(ip) {
+		t.Error("ip address not parsed correctly")
+	}
+	mask := net.CIDRMask(12, 8*net.IPv4len)
+	if bytes.Compare(a.Mask, mask) != 0 {
+		t.Error("mask not parsed correctly")
+	}
+}
+
 func TestGetAddr(t *testing.T) {
 	lo, err := FromName("lo")
 	if err != nil {
@@ -272,15 +306,10 @@ func TestSetAddr(t *testing.T) {
 		t.Error("error fetching bridge addresses")
 	}
 
-	found := false
 	for _, a := range as {
-		if !a.IP.Equal(addr.IP) ||
-			bytes.Compare(a.Mask, addr.Mask) != 0 {
-			continue
+		if a.Equal(addr) {
+			return
 		}
-		found = true
 	}
-	if !found {
-		t.Error("address was not set")
-	}
+	t.Error("address was not set")
 }
