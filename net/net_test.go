@@ -1,6 +1,7 @@
 package net
 
 import (
+	"bytes"
 	"syscall"
 	"testing"
 )
@@ -242,5 +243,44 @@ func TestGetAddr(t *testing.T) {
 	}
 	if len(as) == 0 {
 		t.Fatal("no addresses found")
+	}
+}
+
+func TestSetAddr(t *testing.T) {
+	br, err := NewBridge(bridgeName)
+	if err != nil {
+		t.Fatal("error creating bridge")
+	}
+	defer func() {
+		if err := br.Delete(); err != nil {
+			t.Error("error deleting bridge")
+		}
+	}()
+
+	addr, err := ParseCIDR("12.13.14.15/24")
+	if err != nil {
+		t.Error("error parsing address in cidr format")
+		return
+	}
+	if err := br.SetAddr(addr); err != nil {
+		t.Error("error setting address")
+		return
+	}
+
+	as, err := br.Addrs()
+	if err != nil {
+		t.Error("error fetching bridge addresses")
+	}
+
+	found := false
+	for _, a := range as {
+		if !a.IP.Equal(addr.IP) ||
+			bytes.Compare(a.Mask, addr.Mask) != 0 {
+			continue
+		}
+		found = true
+	}
+	if !found {
+		t.Error("address was not set")
 	}
 }
