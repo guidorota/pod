@@ -2,21 +2,17 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
 	"syscall"
 )
 
 func main() {
 	fmt.Println("parent:", syscall.Getpid())
+	r1, _, err := syscall.Syscall6(syscall.SYS_CLONE, uintptr(syscall.SIGCHLD)|syscall.CLONE_NEWPID, 0, 0, 0, 0, 0)
+	if err != 0 {
+		fmt.Println("clone error:", err)
+	}
 
-	c := exec.Command("./ppid", "")
-	c.Stdout = os.Stdout
-	c.SysProcAttr = &syscall.SysProcAttr{}
-	c.SysProcAttr.Cloneflags = syscall.CLONE_NEWPID
-
-	if err := c.Run(); err != nil {
-		fmt.Println("error running ppid:", err)
-		return
+	if r1 == 0 {
+		fmt.Println("child:", syscall.Getpid())
 	}
 }
